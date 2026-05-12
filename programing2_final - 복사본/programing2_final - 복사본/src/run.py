@@ -1,52 +1,57 @@
-import os
 import subprocess
+import os
+import sys
 
 
-def run_scripts():
-    # 스크립트들이 있는 폴더 이름
-    src_folder = "src"
-    # 제외할 파일 이름
-    exclude_file = "data_parser.py"
+def main():
+    # 현재 run.py 파일이 있는 디렉토리 경로를 가져옵니다.
+    current_dir = os.path.dirname(os.path.abspath(__file__))
 
-    # src 폴더 내의 모든 파일 확인
-    if not os.path.exists(src_folder):
-        print(f"'{src_folder}' 폴더를 찾을 수 없습니다.")
-        return
-
-    # .py 파일만 찾고, exclude_file은 제외
+    # 실행할 스크립트들의 목록입니다.
+    # 데이터 처리 -> 분석 -> 시각화 순서로 실행되도록 순서를 알맞게 조정해 주세요.
+    # (아래는 임의로 논리적인 순서를 추정하여 작성한 예시입니다)
     scripts_to_run = [
-        f for f in os.listdir(src_folder)
-        if f.endswith('.py') and f != exclude_file
+        "data_parser.py",  # 1. 데이터 파싱
+        "export_summary.py",
+        "flatting.py",  # 2. 데이터 전처리 (플래트닝)
+        "Fittinf_Savitzky.py",  # 3. 피팅
+        "Phase shift - V.py",  # 4. 분석 1
+        "VpiL.py",  # 5. 분석 2
+        "VpiL_Analysis.py",  # 6. 분석 3
+        "ER_Analysis.py",  # 7. 분석 4
+        "IL_Analysis.py",  # 8. 분석 5
+        "plot.py",  # 9. 시각화 1
+        "zoom.py"  # 10. 시각화 2
     ]
 
-    # 알파벳 순으로 정렬 (필요에 따라 주석 처리/수정 가능)
-    scripts_to_run.sort()
+    print("=== 통합 실행을 시작합니다 ===")
 
-    if not scripts_to_run:
-        print("실행할 파이썬 파일이 없습니다.")
-        return
-
-    print(f"총 {len(scripts_to_run)}개의 스크립트를 실행합니다...\n" + "-" * 40)
-
-    # 각 스크립트 순차적 실행
     for script in scripts_to_run:
-        script_path = os.path.join(src_folder, script)
-        print(f"▶ 실행 중: {script} ...")
+        script_path = os.path.join(current_dir, script)
 
-        # subprocess를 이용해 파이썬 파일 실행
-        # Windows의 경우 'python', Mac/Linux의 경우 'python3'를 주로 사용합니다.
-        result = subprocess.run(['python', script_path], capture_output=True, text=True)
+        # 파일이 실제로 존재하는지 확인
+        if not os.path.exists(script_path):
+            print(f"[경고] {script} 파일을 찾을 수 없습니다. 건너뜁니다.")
+            continue
 
-        # 실행 결과 확인
-        if result.returncode == 0:
-            print(f"✅ 완료: {script}")
-            # 만약 각 스크립트의 출력(print) 내용도 보고 싶다면 아래 주석을 해제하세요.
-            # print(result.stdout)
-        else:
-            print(f"❌ 오류 발생 ({script}):")
-            print(result.stderr)
-            print("다음 스크립트 실행을 계속합니다...\n")
+        print(f"\n▶ 실행 중: {script} ...")
+
+        try:
+            # sys.executable은 현재 파이썬 환경(python 또는 python3)을 자동으로 지정합니다.
+            result = subprocess.run([sys.executable, script_path], check=True)
+            print(f"▷ 완료: {script}")
+
+        except subprocess.CalledProcessError as e:
+            # 특정 스크립트에서 에러가 발생하면 실행을 중단합니다.
+            print(f"\n[오류] {script} 실행 중 에러가 발생했습니다!")
+            print(f"에러 코드: {e.returncode}")
+            print("=== 전체 실행을 중단합니다 ===")
+            break
+
+    else:
+        # for문이 break 없이 정상적으로 모두 끝났을 때 실행됩니다.
+        print("\n=== 모든 스크립트 실행이 성공적으로 완료되었습니다! ===")
 
 
 if __name__ == "__main__":
-    run_scripts()
+    main()

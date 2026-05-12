@@ -87,7 +87,6 @@ for d in parse_wafer_data(zip_path, target_wafers):
 
 df = pd.DataFrame(summary_rows)
 if not df.empty:
-    df.to_csv(os.path.join(save_grp, "Summary_VpiL.csv"), index=False)
     filtered = pd.DataFrame()
     for _, g in df.groupby(['Wafer', 'Band']):
         m, s = g['VpiL'].mean(), g['VpiL'].std()
