@@ -64,7 +64,7 @@ for d in parse_wafer_data(zip_path, target_wafers):
     plt.plot(biases, ph_arr, marker='o', lw=2)
     plt.axhline(0, ls='--', alpha=0.5); plt.axvline(0, ls='--', alpha=0.5)
     plt.xlabel("Bias Voltage (V)"); plt.ylabel("Phase Shift (deg)")
-    plt.title(f"{d['wafer_id']} ({d['die_c']},{d['die_r']}) {d['band']}\nPhase Shift")
+    plt.title(f"{d['wafer_id']} ({d['die_r']},{d['die_c']}) {d['band']}\nPhase Shift")
     plt.grid(True)
 
     w_dir = os.path.join(base_save_dir, d['wafer_id'])
