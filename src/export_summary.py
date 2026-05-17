@@ -12,9 +12,9 @@ from openpyxl.utils import get_column_letter
 # ==========================================================
 THRESHOLD = {
     'IL_MIN': -20.0,  # IL이 -20dB보다 낮으면 에러 (너무 큰 손실)
-    'ER_MIN': 10.0,  # ER이 10dB보다 낮으면 아웃라이어
+    'ER_MIN': 10.0,   # ER이 10dB보다 낮으면 아웃라이어
     'VPIL_MIN': 0.2,  # VpiL이 0.2Vcm 미만이면 에러
-    'VPIL_MAX': 3.0  # VpiL이 3.0Vcm 초과하면 에러
+    'VPIL_MAX': 3.0   # VpiL이 3.0Vcm 초과하면 에러
 }
 
 zip_path = "../dat/HY202103.zip"
@@ -22,7 +22,7 @@ save_path = "../res/Total_Analysis_Report.xlsx"
 os.makedirs("../res", exist_ok=True)
 
 target_wafers = ['D07', 'D08', 'D23', 'D24']
-L_length = 0.05
+L_length = 0.05  # phase shifter length [cm]
 
 
 def q_sub(x, y):
@@ -75,13 +75,13 @@ for d in parse_wafer_data(zip_path, target_wafers):
     poly_func = np.poly1d(np.polyfit(v_ref_wl, savgol_filter(v_ref_il, 31, 3), 3))
 
     # --- 1. IL Calculation ---
-    max_peak = -999.0
+    max_peak = float('-inf')
     for b in d['bias_data_list']:
         if b['bias'] is None: continue
         mb = (b['wl'] >= d['wl_min']) & (b['wl'] <= d['wl_max'])
         if np.any(mb):
             max_peak = max(max_peak, np.max(b['il'][mb]))
-    il_val = max_peak if max_peak != -999.0 else np.nan
+    il_val = max_peak if max_peak != float('-inf') else np.nan
 
     # --- 2. ER Calculation ---
     max_er = 0.0
@@ -104,9 +104,9 @@ for d in parse_wafer_data(zip_path, target_wafers):
         max_er = max(max_er, er)
     er_val = max_er if max_er > 0 else np.nan
 
-    # --- 3. VpiL Calculation ---
-    z_data = next((b for b in d['bias_data_list'] if b['bias'] == 0.0), None)
+    # --- 3. VpiL Calculation (기준 코드 완벽 동기화) ---
     vpil_val = np.nan
+    z_data = next((b for b in d['bias_data_list'] if b['bias'] == 0.0), None)
 
     if z_data:
         m0 = (z_data['wl'] >= d['wl_min']) & (z_data['wl'] <= d['wl_max'])
@@ -136,14 +136,19 @@ for d in parse_wafer_data(zip_path, target_wafers):
 
             if len(volts) >= 5:
                 volts, p_pi = np.array(volts), np.array(p_pi)
-                fit = np.poly1d(np.polyfit(volts, p_pi, 2))
-                slope = np.abs(np.polyder(fit)(volts))
-                slope = np.where(slope < 1e-5, 1e-5, slope)
-                vpil_arr = L_length / slope
 
-                good = (vpil_arr >= 0.1) & (vpil_arr <= 10.0)
-                if np.sum(good) > 0:
-                    vpil_val = np.mean(vpil_arr[good])
+                # --- [핵심 반영] 제공된 코드의 0V 기준 VpiL 추출 로직 ---
+                fit = np.poly1d(np.polyfit(volts, p_pi, 2))
+                derivative = np.polyder(fit)
+
+                # 0V에서의 기울기 추출
+                slope_at_0 = np.abs(derivative(0.0))
+                slope_at_0 = max(slope_at_0, 1e-5)  # 0으로 나누기 방지
+                vpil_0V = L_length / slope_at_0
+
+                # 유효한 범위 필터링 (0V VpiL이 정상이면 저장)
+                if 0.1 <= vpil_0V <= 10.0:
+                    vpil_val = vpil_0V
 
     # 리스트에 계산된 값 추가
     summary_list.append({
@@ -157,15 +162,17 @@ for d in parse_wafer_data(zip_path, target_wafers):
 
 # --- DataFrame 변환 및 상태 체크 ---
 df = pd.DataFrame(summary_list)
-# 중복 데이터(동일 위치 두 번 측정 등) 평균 처리
-df = df.groupby(['Wafer', 'Band', 'Column', 'Row', 'Radius'], as_index=False).mean()
 
-# 위에서 정의한 check_status 함수를 적용하여 정상/이상 여부 판단
-df[['Status', 'Reason']] = df.apply(lambda r: pd.Series(check_status(r)), axis=1)
+# 중복 데이터(동일 위치 스윕 등) 평균 처리. 숫자 데이터에만 적용되도록 옵션 추가
+# 중복 데이터 중 VpiL이 더 낮게 나온(튀지 않은) 측정값 선택
+df = df.groupby(['Wafer', 'Band', 'Column', 'Row', 'Radius'], as_index=False).min(numeric_only=True)
+
+# 정상/이상 여부 판단 및 이유 부여 (zip을 통해 최적화 처리)
+df['Status'], df['Reason'] = zip(*df.apply(check_status, axis=1))
 
 print("엑셀 파일을 저장하고 서식을 적용하는 중...")
 
-# --- 엑셀 저장 및 서식 적용 (소수점, 색상, 테두리 등) ---
+# --- 엑셀 저장 및 서식 적용 ---
 with pd.ExcelWriter(save_path, engine='openpyxl') as writer:
     df.to_excel(writer, index=False, sheet_name='Analysis_Result')
     worksheet = writer.sheets['Analysis_Result']
@@ -173,8 +180,7 @@ with pd.ExcelWriter(save_path, engine='openpyxl') as writer:
     header_fill = PatternFill(start_color='1F4E78', end_color='1F4E78', fill_type='solid')
     header_font = Font(color='FFFFFF', bold=True)
     error_fill = PatternFill(start_color='FFC7CE', end_color='FFC7CE', fill_type='solid')
-    border = Border(left=Side(style='thin'), right=Side(style='thin'), top=Side(style='thin'),
-                    bottom=Side(style='thin'))
+    border = Border(left=Side(style='thin'), right=Side(style='thin'), top=Side(style='thin'), bottom=Side(style='thin'))
 
     for col_num, column_title in enumerate(df.columns, 1):
         # 1행(헤더) 서식
@@ -188,17 +194,24 @@ with pd.ExcelWriter(save_path, engine='openpyxl') as writer:
             data_cell = worksheet.cell(row=row_num, column=col_num)
             data_cell.border = border
 
-            # IL, ER, VpiL 열은 소수점 3자리로 고정
+            # 숫자 포맷 고정
             if column_title in ['IL_dB', 'ER_dB', 'VpiL_Vcm']:
                 data_cell.number_format = '0.000'
 
-            # Status 열의 값이 "이상 발생"이면 해당 행 전체에 빨간색 배경 칠하기
+            # 에러 행 하이라이트
             if worksheet.cell(row=row_num, column=df.columns.get_loc('Status') + 1).value == "이상 발생":
                 data_cell.fill = error_fill
 
-    # 셀 글자 길이에 맞춰 엑셀 열 너비 자동 조절
+    # 한글 및 소수점 너비 깨짐을 방지하는 스마트 열 너비 조절
     for col in worksheet.columns:
-        max_length = max((len(str(cell.value)) for cell in col if cell.value is not None), default=0)
-        worksheet.column_dimensions[get_column_letter(col[0].column)].width = max_length + 2
+        max_length = 0
+        column_letter = get_column_letter(col[0].column)
+        for cell in col:
+            if cell.value is not None:
+                text = str(cell.value)
+                # 한글 데이터 너비 보정
+                adjusted_length = sum(2 if ord(c) > 127 else 1 for c in text)
+                max_length = max(max_length, adjusted_length)
+        worksheet.column_dimensions[column_letter].width = max_length + 2
 
 print(f"✅ 엑셀 리포트 완료: {save_path}")

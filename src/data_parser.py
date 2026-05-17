@@ -25,8 +25,8 @@ def parse_wafer_data(zip_path, target_wafers):
                     else:
                         continue
 
-                    die_c = int(info.get('DieColumn', 0)) if info.get('DieColumn') else 0
-                    die_r = int(info.get('DieRow', 0)) if info.get('DieRow') else 0
+                    die_c = int(info.get('DieRow', 0)) if info.get('DieRow') else 0
+                    die_r = int(info.get('DieColumn', 0)) if info.get('DieColumn') else 0
                     wafer_id = next((w for w in target_wafers if w in file_name), "Unknown")
 
                     sweeps = root.findall('.//WavelengthSweep')

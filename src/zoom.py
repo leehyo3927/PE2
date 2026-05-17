@@ -8,6 +8,7 @@ zip_path = "../dat/HY202103.zip"
 base_save_dir = "../res/zoom"
 target_wafers = ['D07', 'D08', 'D23', 'D24']
 
+# 평탄화 코드와 완전히 동일하게 데이터를 파싱합니다.
 for d in parse_wafer_data(zip_path, target_wafers):
     m = (d['ref_data']['wl'] >= d['wl_min']) & (d['ref_data']['wl'] <= d['wl_max'])
     v_ref_wl, v_ref_il = d['ref_data']['wl'][m], d['ref_data']['il'][m]
@@ -38,13 +39,23 @@ for d in parse_wafer_data(zip_path, target_wafers):
         if len(peaks) >= 2: flat -= np.poly1d(np.polyfit(wb[peaks], flat[peaks], 1))(wb)
         plt.plot(wb, flat, label=b['label'], alpha=0.8)
 
-    plt.axhline(0, color='gray', ls='--');
+    plt.axhline(0, color='gray', ls='--')
     plt.xlim(z_min, z_max)
-    plt.legend(bbox_to_anchor=(1.25, 1.0));
-    plt.title(f"Zoom Only: {d['wafer_id']} {d['band']}")
+    plt.legend(bbox_to_anchor=(1.25, 1.0))
 
-    w_dir = os.path.join(base_save_dir, d['wafer_id']);
+    # 제목 스타일도 평탄화 코드와 유사하게 맞추고 좌표를 표시했습니다.
+    plt.title(f"Wafer: {d['wafer_id']} / {d['band']} Zoom Only (C{d['die_c']}_R{d['die_r']})")
+    plt.xlabel('Wavelength [nm]')
+    plt.ylabel('Transmission [dB]')
+    plt.grid(True, ls='--')
+
+    w_dir = os.path.join(base_save_dir, d['wafer_id'])
     os.makedirs(w_dir, exist_ok=True)
-    plt.savefig(os.path.join(w_dir, f"{d['wafer_id']}_Zoom.png"), bbox_inches='tight');
+
+    # 💡 수정 핵심: 다른 코드와 완벽히 동일한 규칙으로 파일명을 생성합니다. (_Flat 대신 _Zoom 사용)
+    # 결과 예시: D07_C1_R2_Zoom.png
+    save_filename = f"{d['wafer_id']}_C{d['die_c']}_R{d['die_r']}_Zoom.png"
+    plt.savefig(os.path.join(w_dir, save_filename), bbox_inches='tight')
     plt.close()
+
 print("✅ 줌 전용 저장 완료")
