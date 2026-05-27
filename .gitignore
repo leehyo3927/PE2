@@ -14,3 +14,8 @@ __pycache__/
 # 운영체제 생성 파일 (맥/윈도우 시스템 파일)
 .DS_Store
 Thumbs.db
+# dat 폴더 안의 모든 파일은 무시하되,
+dat/*
+
+# .gitkeep 파일만은 예외로 깃허브에 올린다!
+!dat/.gitkeep
