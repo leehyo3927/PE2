@@ -84,22 +84,32 @@ def apply_excel_style(worksheet, dataframe):
                     data_cell.font = link_font
                     data_cell.alignment = Alignment(horizontal='center')
 
-            # 2. 이미지 확인 하이퍼링크 설정
+            # 2. 이미지 열기 하이퍼링크 설정 (개별 다이 이미지용)
             elif column_title == 'Image_Link':
                 target_image = data_cell.value
                 if target_image:
-                    data_cell.value = f'=HYPERLINK("{target_image}", "🖼️ Summary 확인")'
+                    data_cell.value = f'=HYPERLINK("{target_image}", "🖼️ 이미지 열기")'
+                    data_cell.font = link_font
+                    data_cell.alignment = Alignment(horizontal='center')
+
+            # 3. 웨이퍼 맵 하이퍼링크 설정 (Analysis.xlsm 용)
+            elif column_title == 'Map_Image_Link':
+                target_image = data_cell.value
+                if target_image:
+                    data_cell.value = f'=HYPERLINK("{target_image}", "🗺️ 웨이퍼 맵 확인")'
                     data_cell.font = link_font
                     data_cell.alignment = Alignment(horizontal='center')
 
             else:
                 if column_title in ['IL_dB', 'ER_dB', 'VpiL_Vcm'] and isinstance(data_cell.value, (int, float)):
                     data_cell.number_format = '0.000'
+                elif column_title == 'R_Squared' and isinstance(data_cell.value, (int, float)):
+                    data_cell.number_format = '0.0000'
 
-            # 에러 행 하이라이트 (링크 컬럼 제외)
+            # 에러 행 하이라이트
             if 'Status' in col_idx:
                 status_value = worksheet.cell(row=row_num, column=col_idx['Status']).value
-                if status_value == "이상 발생" and column_title not in ['Folder_Link', 'Image_Link']:
+                if status_value == "이상 발생" and column_title not in ['Folder_Link', 'Image_Link', 'Map_Image_Link']:
                     data_cell.fill = error_fill
 
     for col in worksheet.columns:
@@ -115,7 +125,7 @@ def apply_excel_style(worksheet, dataframe):
 # ==========================================================
 # 메인 실행 블록
 # ==========================================================
-print("🚀 데이터 분석을 시작합니다...")
+print("🚀 데이터 분석 및 계산을 시작합니다...")
 summary_list = []
 count = 0
 
@@ -127,7 +137,14 @@ for d in parse_wafer_data(zip_path, target_wafers):
     m = (d['ref_data']['wl'] >= d['wl_min']) & (d['ref_data']['wl'] <= d['wl_max'])
     v_ref_wl, v_ref_il = d['ref_data']['wl'][m], d['ref_data']['il'][m]
     if len(v_ref_wl) < 31: continue
-    poly_func = np.poly1d(np.polyfit(v_ref_wl, savgol_filter(v_ref_il, 31, 3), 3))
+
+    sm_ref = savgol_filter(v_ref_il, 31, 3)
+    poly_func = np.poly1d(np.polyfit(v_ref_wl, sm_ref, 3))
+    y_fitted = poly_func(v_ref_wl)
+
+    ss_res = np.sum((sm_ref - y_fitted) ** 2)
+    ss_tot = np.sum((sm_ref - np.mean(sm_ref)) ** 2)
+    r_squared = 1.0 if ss_tot == 0 else 1 - (ss_res / ss_tot)
 
     max_peak = float('-inf')
     for b in d['bias_data_list']:
@@ -174,63 +191,80 @@ for d in parse_wafer_data(zip_path, target_wafers):
 
     summary_list.append({
         'Wafer': wafer, 'Band': band, 'Date': date_str, 'Column': c, 'Row': r, 'Radius': radius,
-        'IL_dB': il_val, 'ER_dB': er_val, 'VpiL_Vcm': vpil_val
+        'IL_dB': il_val, 'ER_dB': er_val, 'VpiL_Vcm': vpil_val, 'R_Squared': r_squared
     })
     count += 1
     if count % 200 == 0: print(f"현재 {count}개 Die 분석 완료...")
 
-# --- 데이터 정리 ---
-df = pd.DataFrame(summary_list).groupby(['Wafer', 'Band', 'Date', 'Column', 'Row', 'Radius'], as_index=False).min(
+# --- 전체 데이터 정리 ---
+df_full = pd.DataFrame(summary_list).groupby(['Wafer', 'Band', 'Date', 'Column', 'Row', 'Radius'], as_index=False).min(
     numeric_only=True)
-df['Status'], df['Reason'] = zip(*df.apply(check_status, axis=1))
+df_full['Status'], df_full['Reason'] = zip(*df_full.apply(check_status, axis=1))
 
 
-# 🌟 [핵심] 폴더 및 파일 경로 자동 생성 함수 (Band(LMZC 등) 포함되도록 수정!)
-def generate_paths(row):
+# 🌟 1. 개별 다이(Die) 하이퍼링크 복구 로직 (개별 엑셀 파일용)
+def generate_die_paths(row):
     wafer = str(row['Wafer'])
     date = str(row['Date'])
     c = int(row['Column'])
     r = int(row['Row'])
-    band = str(row['Band'])  # LMZC, LMZO 등 엑셀의 Band 정보 가져오기
+    band = str(row['Band'])
 
-    # 기본 폴더 베이스 경로
     base_dir = f"C:\\Users\\sodlg\\PycharmProjects\\PE2\\res\\png\\{wafer}\\{date}"
+    folder_name_with_png = f"HY202103_{wafer}_({c},{r})_LION1_DCM_{band}.png"
 
-    # 칩(Die)별 폴더명 예: HY202103_D07_(0,0)_LION1_DCM_LMZC
-    folder_name = f"HY202103_{wafer}_({c},{r})_LION1_DCM_{band}"
-
-    # 1. 최종 폴더 경로
-    folder_path = f"{base_dir}\\{folder_name}.png"
-
-    # 2. 최종 이미지 파일명 조립 (규칙: Summary_웨이퍼_폴더명.png)
-    # 예: Summary_D07_HY202103_D07_(0,0)_LION1_DCM_LMZC.png
-    image_name = f"Summary_{wafer}_{folder_name}.png"
-
-    # 최종 이미지 전체 경로 (따옴표 닫기 주의!)
+    folder_path = f"{base_dir}\\{folder_name_with_png}"
+    image_name = f"Summary_{wafer}_{folder_name_with_png}"
     image_path = f"{folder_path}\\{image_name}.png"
 
     return pd.Series([folder_path, image_path])
 
 
-# 경로 생성 적용
-df[['Folder_Link', 'Image_Link']] = df.apply(generate_paths, axis=1)
+# 원본 데이터프레임에 복구 적용
+df_full[['Folder_Link', 'Image_Link']] = df_full.apply(generate_die_paths, axis=1)
 
 print("--------------------------------------------------")
-print("▶ 통합 및 개별 Wafer 파일을 생성합니다...")
+print("▶ 결과 파일 저장을 시작합니다...")
 
-total_file_path = os.path.join(save_dir, "Process_result_Total.xlsx")
-with pd.ExcelWriter(total_file_path, engine='openpyxl') as writer:
-    df.to_excel(writer, index=False, sheet_name='Total_Result')
-    apply_excel_style(writer.sheets['Total_Result'], df)
-print(f"  - 저장 완료: {total_file_path}")
-
-for wafer_id in df['Wafer'].unique():
-    wafer_df = df[df['Wafer'] == wafer_id].copy()
+# ==========================================================
+# 1. 개별 웨이퍼 파일 생성 (모든 데이터 + 개별 좌표 링크 포함)
+# ==========================================================
+for wafer_id in df_full['Wafer'].unique():
+    wafer_df = df_full[df_full['Wafer'] == wafer_id].copy()
     wafer_file_path = os.path.join(save_dir, f"{wafer_id}_Process_result.xlsx")
     with pd.ExcelWriter(wafer_file_path, engine='openpyxl') as writer:
         wafer_df.to_excel(writer, index=False, sheet_name='Analysis_Result')
         apply_excel_style(writer.sheets['Analysis_Result'], wafer_df)
-    print(f"  - 저장 완료: {wafer_file_path}")
+    print(f"  - 개별 저장 완료 (풀 데이터 & 개별 링크): {wafer_file_path}")
+
+# ==========================================================
+# 2. 새로운 Analysis.xlsm 생성 (좌표 제거 + 웨이퍼 맵 링크)
+# ==========================================================
+df_index = df_full[['Wafer', 'Date', 'Band']].drop_duplicates().reset_index(drop=True)
+
+
+def generate_map_paths(row):
+    wafer = str(row['Wafer'])
+    date = str(row['Date'])
+    band = str(row['Band'])
+
+    # Analysis 폴더 내 웨이퍼 맵 경로
+    folder_path = f"C:\\Users\\sodlg\\PycharmProjects\\PE2\\res\\png\\Analysis\\{wafer}\\{date}"
+    image_name = f"Summary_WaferMap_{wafer}_{band}_{date}.png"
+    image_path = f"{folder_path}\\{image_name}"
+
+    return pd.Series([folder_path, image_path])
+
+
+# 인덱스 데이터프레임에 맵 링크 전용으로 적용
+df_index[['Folder_Link', 'Map_Image_Link']] = df_index.apply(generate_map_paths, axis=1)
+
+# Analysis.xlsm 저장
+total_file_path = os.path.join(save_dir, "Analysis.xlsm")
+with pd.ExcelWriter(total_file_path, engine='openpyxl') as writer:
+    df_index.to_excel(writer, index=False, sheet_name='WaferMap_Dashboard')
+    apply_excel_style(writer.sheets['WaferMap_Dashboard'], df_index)
+print(f"  - 마스터 저장 완료 (웨이퍼 맵 대시보드): {total_file_path}")
 
 print("--------------------------------------------------")
-print(f"✅ 저장이 완료되었습니다!")
+print(f"✅ 모든 분석 및 파일 생성이 성공적으로 완료되었습니다!")

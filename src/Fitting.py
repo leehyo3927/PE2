@@ -19,9 +19,23 @@ def _draw_and_save_zoomed_plot(args):
 
     sm_ref = savgol_filter(v_ref_il, 31, 3)
     poly = np.poly1d(np.polyfit(v_ref_wl, sm_ref, 3))
+    y_fitted = poly(v_ref_wl)
+
+    # --- R^2 (결정계수) 계산 ---
+    ss_res = np.sum((sm_ref - y_fitted) ** 2)  # 잔차 제곱합
+    ss_tot = np.sum((sm_ref - np.mean(sm_ref)) ** 2)  # 총 제곱합
+
+    # ss_tot가 0인 경우(데이터가 완전히 평탄한 경우)를 방지하기 위한 예외 처리
+    if ss_tot == 0:
+        r_squared = 1.0
+    else:
+        r_squared = 1 - (ss_res / ss_tot)
+    # ---------------------------
 
     plt.figure(figsize=(10, 6))
-    plt.plot(v_ref_wl, sm_ref - poly(v_ref_wl), label='REF', color='black', lw=2.5, zorder=10)
+
+    # 범례에 계산된 R^2 값을 표시
+    plt.plot(v_ref_wl, sm_ref - y_fitted, label=f'REF (R^2={r_squared:.4f})', color='black', lw=2.5, zorder=10)
 
     z_min, z_max = d['wl_min'], d['wl_max']
     tgt_bias = next((b for b in d['bias_data_list'] if b['bias'] == -2.0),
