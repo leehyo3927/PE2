@@ -206,7 +206,7 @@ def generate_die_paths(row):
     # 날짜 폴더에서 바로 접근
     base_dir = f"C:\\Users\\sodlg\\PycharmProjects\\PE2\\res\\png\\{wafer}\\{date}"
 
-    # 방금 바꾼 새로운 병합 이미지 파일명 적용
+    # 병합 이미지 파일명 적용
     image_name = f"HY202103_{wafer}_({c},{r})_LION1_DCM_{band}.png"
     image_path = f"{base_dir}\\{image_name}"
 
@@ -219,9 +219,8 @@ print("--------------------------------------------------")
 print("▶ 결과 파일 저장을 시작합니다...")
 
 # ==========================================================
-# [신규] 순수 CSV 파일 생성 (링크 컬럼 제거됨, 합본 포함)
+# [순수 CSV 파일 생성] (링크 컬럼 제거됨, 합본 포함)
 # ==========================================================
-# 엑셀 하이퍼링크용으로 만들어진 Folder_Link를 빼고 저장
 csv_df = df_full.drop(columns=['Folder_Link'], errors='ignore')
 
 # 1. 개별 CSV 저장
@@ -231,7 +230,7 @@ for wafer_id in csv_df['Wafer'].unique():
     wafer_csv.to_csv(csv_file_path, index=False, encoding='utf-8-sig')
     print(f"  - 개별 순수 CSV 저장 완료: {csv_file_path}")
 
-# 2. 전체 데이터 통합 CSV 저장 (Total_Process_result.csv)
+# 2. 전체 데이터 통합 CSV 저장
 total_csv_path = os.path.join(save_dir_csv, "Total_Process_result.csv")
 csv_df.to_csv(total_csv_path, index=False, encoding='utf-8-sig')
 print(f"  - 🌟 전체 통합 CSV 저장 완료: {total_csv_path}")
@@ -239,18 +238,27 @@ print(f"  - 🌟 전체 통합 CSV 저장 완료: {total_csv_path}")
 print("--------------------------------------------------")
 
 # ==========================================================
-# 1. 개별 웨이퍼 파일 (XLSX) 생성 (병합 이미지 링크 포함)
+# [엑셀 XLSX 파일 생성] (병합 이미지 링크 포함)
 # ==========================================================
+# 1. 개별 웨이퍼 파일 (XLSX) 생성
 for wafer_id in df_full['Wafer'].unique():
     wafer_df = df_full[df_full['Wafer'] == wafer_id].copy()
     wafer_file_path = os.path.join(save_dir_xlsx, f"{wafer_id}_Process_result.xlsx")
     with pd.ExcelWriter(wafer_file_path, engine='openpyxl') as writer:
         wafer_df.to_excel(writer, index=False, sheet_name='Analysis_Result')
         apply_excel_style(writer.sheets['Analysis_Result'], wafer_df)
-    print(f"  - 개별 XLSX 저장 완료 (통합 이미지 링크 포함): {wafer_file_path}")
+    print(f"  - 개별 XLSX 저장 완료: {wafer_file_path}")
+
+# 2. [추가됨] 전체 데이터 통합 엑셀 파일 (XLSX) 생성
+total_xlsx_path = os.path.join(save_dir_xlsx, "Total_Process_result.xlsx")
+with pd.ExcelWriter(total_xlsx_path, engine='openpyxl') as writer:
+    df_full.to_excel(writer, index=False, sheet_name='Analysis_Result')
+    apply_excel_style(writer.sheets['Analysis_Result'], df_full)
+print(f"  - 🌟 전체 통합 XLSX 저장 완료: {total_xlsx_path}")
+
 
 # ==========================================================
-# 2. 새로운 Analysis.xlsm 및 Analysis.csv 생성 (웨이퍼 맵 포함)
+# 3. 새로운 Analysis.xlsm 및 Analysis.csv 생성 (웨이퍼 맵 포함)
 # ==========================================================
 df_index = df_full[['Wafer', 'Date', 'Band']].drop_duplicates().reset_index(drop=True)
 
@@ -271,12 +279,12 @@ def generate_map_paths(row):
 # 인덱스 데이터프레임에 맵 링크 전용으로 적용
 df_index['Map_Image_Link'] = df_index.apply(generate_map_paths, axis=1)
 
-# Analysis.csv 저장 (하이퍼링크 포맷 없이 텍스트 경로로 저장)
+# Analysis.csv 저장 (하이퍼링크 포맷 없이 텍스트 경로 혹은 드랍 후 저장)
 analysis_csv_path = os.path.join(save_dir_csv, "Analysis.csv")
-df_index.to_csv(analysis_csv_path, index=False, encoding='utf-8-sig')
+df_index.drop(columns=['Map_Image_Link'], errors='ignore').to_csv(analysis_csv_path, index=False, encoding='utf-8-sig')
 print(f"  - 🌟 마스터 CSV 저장 완료 (웨이퍼 맵 대시보드 리스트): {analysis_csv_path}")
 
-# Analysis.xlsm 저장 (이것도 xlsx 디렉토리로 이동)
+# Analysis.xlsm 저장
 total_file_path = os.path.join(save_dir_xlsx, "Analysis.xlsm")
 with pd.ExcelWriter(total_file_path, engine='openpyxl') as writer:
     df_index.to_excel(writer, index=False, sheet_name='WaferMap_Dashboard')
