@@ -44,7 +44,9 @@ def _draw_and_save_zoom_only(args):
             if idx + 1 < len(peaks):
                 z_min, z_max = wt[peaks[idx]] - 0.5, wt[peaks[idx + 1]] + 0.5
 
+    # ------------------- 그래프 그리기 (Standard Style 적용) -------------------
     plt.figure(figsize=(10, 6))
+
     for b in d['bias_data_list']:
         mb = (b['wl'] >= d['wl_min']) & (b['wl'] <= d['wl_max'])
         wb, ib = b['wl'][mb], b['il'][mb]
@@ -57,18 +59,38 @@ def _draw_and_save_zoom_only(args):
         if len(peaks) >= 2:
             flat -= np.poly1d(np.polyfit(wb[peaks], flat[peaks], 1))(wb)
 
-        plt.plot(wb, flat, label=b['label'], alpha=0.8)
+        # [스타일 1] 데이터 선 두껍게
+        plt.plot(wb, flat, label=b['label'], alpha=0.8, linewidth=2.5)
 
-    plt.axhline(0, color='gray', ls='--')
+    # 0 기준선 굵게
+    plt.axhline(0, color='gray', ls='--', linewidth=2)
     plt.xlim(z_min, z_max)
-    plt.legend(bbox_to_anchor=(1.25, 1.0))
 
-    plt.title(f"Wafer: {d['wafer_id']} / {d['band']} Zoom Only (C{d['die_c']}_R{d['die_r']})")
-    plt.xlabel('Wavelength [nm]')
-    plt.ylabel('Transmission [dB]')
-    plt.grid(True, ls='--')
+    # [스타일 2] 제목, 축 라벨 크기 및 굵기 적용
+    plt.title(f"Wafer: {d['wafer_id']} / Coord: ({d['die_c']}, {d['die_r']}) / Band: {d['band']} Zoom Only",
+              fontsize=18, fontweight='bold', pad=15)
+    plt.xlabel('Wavelength (nm)', fontsize=16, fontweight='bold')
+    plt.ylabel('Transmission (dB)', fontsize=16, fontweight='bold')
 
-    # --- [수정] 날짜별 폴더 하위에 바로 저장 ---
+    # [스타일 3] 축 눈금(Tick) 숫자 굵기 및 크기 적용
+    plt.xticks(fontsize=13, fontweight='bold')
+    plt.yticks(fontsize=13, fontweight='bold')
+
+    # [스타일 4] 범례(Legend) 폰트 굵게 및 최적 위치 배치
+    plt.legend(loc='best', prop={'size': 12, 'weight': 'bold'})
+
+    # [스타일 5] 격자(Grid) 점선 및 반투명 처리
+    plt.grid(True, linestyle='--', alpha=0.6, linewidth=1)
+
+    # [스타일 6] 그래프 테두리(Spines) 두껍게
+    ax = plt.gca()
+    for spine in ax.spines.values():
+        spine.set_linewidth(2)
+
+    # [스타일 7] 불필요한 여백 제거
+    plt.tight_layout()
+
+    # ------------------- 저장 경로 설정 -------------------
     date_str = d.get('date', 'Unknown_Date')
 
     # coord_folder를 거치지 않고 wafer_id와 date_str 폴더까지만 생성
@@ -101,7 +123,7 @@ def main():
     print(f"▶ 줌 전용 플롯 생성 ({total_items}개, 병렬 처리 중)...")
 
     success_count = 0
-    # 8코어 풀가동
+    # 풀가동
     with ProcessPoolExecutor(max_workers=None) as ex:
         futures = [ex.submit(_draw_and_save_zoom_only, t) for t in tasks]
 

@@ -73,20 +73,46 @@ def _process_vpil(args):
 
     if not (0.1 <= vpil_0V <= 10.0): return None
 
-    # 트렌드 그래프 그리기 및 저장
-    plt.figure(figsize=(8, 6))
+    # ------------------- 그래프 그리기 (Standard Style 적용) -------------------
+    # [스타일 1] 비율 통일
+    plt.figure(figsize=(10, 6))
     vpil_curve = L_length / np.maximum(np.abs(derivative(volts)), 1e-5)
-    plt.plot(volts, vpil_curve, 's-', lw=2, color='gray', label="VpiL Curve")
-    plt.plot(0.0, vpil_0V, 'r*', markersize=15, label=f'Value @ 0V = {vpil_0V:.3f}')
-    plt.axhline(vpil_0V, color='red', ls=':', alpha=0.5)
-    plt.axvline(0.0, color='red', ls=':', alpha=0.5)
-    plt.title(f"{wafer} {band} / Coord: ({c}, {r}) / VπL at 0V", fontweight='bold')
-    plt.xlabel("Voltage (V)")
-    plt.ylabel("Vpi*L (V*cm)")
-    plt.grid(True)
-    plt.legend()
 
-    # ------------------- [수정] 저장 경로 설정 -------------------
+    # 선 굵기 및 마커 크기 키우기
+    plt.plot(volts, vpil_curve, 's-', linewidth=2.5, markersize=8, color='gray', label="VpiL Curve")
+
+    # 핵심 데이터인 0V 값 강하게 부각
+    plt.plot(0.0, vpil_0V, 'r*', markersize=18, label=f'Value @ 0V = {vpil_0V:.3f}')
+
+    # 0 기준선 굵고 또렷하게
+    plt.axhline(vpil_0V, color='red', ls=':', linewidth=2, alpha=0.6)
+    plt.axvline(0.0, color='red', ls=':', linewidth=2, alpha=0.6)
+
+    # [스타일 2] 제목, 축 라벨 크기 및 굵기 적용 (형식 통일)
+    plt.title(f"Wafer: {wafer} / Coord: ({c}, {r}) / Band: {band}\nVπL at 0V",
+              fontsize=18, fontweight='bold', pad=15)
+    plt.xlabel("Voltage (V)", fontsize=16, fontweight='bold')
+    plt.ylabel("Vpi*L (V*cm)", fontsize=16, fontweight='bold')
+
+    # [스타일 3] 축 눈금(Tick) 숫자 굵기 및 크기 적용
+    plt.xticks(fontsize=13, fontweight='bold')
+    plt.yticks(fontsize=13, fontweight='bold')
+
+    # [스타일 4] 범례(Legend) 폰트 굵게
+    plt.legend(loc='best', prop={'size': 12, 'weight': 'bold'})
+
+    # [스타일 5] 격자(Grid) 점선 및 반투명 처리
+    plt.grid(True, linestyle='--', alpha=0.6, linewidth=1)
+
+    # [스타일 6] 그래프 테두리(Spines) 두껍게
+    ax = plt.gca()
+    for spine in ax.spines.values():
+        spine.set_linewidth(2)
+
+    # [스타일 7] 불필요한 여백 제거
+    plt.tight_layout()
+
+    # --- 날짜별 폴더 하위에 바로 저장 ---
     # 깊은 하위 폴더(coord_folder) 경로를 제거하고 날짜 폴더까지만 경로로 설정합니다.
     w_dir = os.path.join(base_res_dir, wafer, date_str)
     os.makedirs(w_dir, exist_ok=True)

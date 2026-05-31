@@ -80,19 +80,27 @@ def apply_excel_style(worksheet, dataframe):
             data_cell = worksheet.cell(row=row_num, column=col_num)
             data_cell.border = border
 
-            # 1. Folder_Link 열 (통합된 결과 이미지 PNG 열기)
+            # 1. Folder_Link 열 (개별 다이 통합 PNG 열기)
             if column_title == 'Folder_Link':
                 target_image = data_cell.value
                 if target_image:
-                    data_cell.value = f'=HYPERLINK("{target_image}", "🖼️ 결과 이미지 보기")'
+                    data_cell.value = f'=HYPERLINK("{target_image}", "🖼️ 개별 다이 이미지 보기")'
                     data_cell.font = link_font
                     data_cell.alignment = Alignment(horizontal='center')
 
-            # 2. 웨이퍼 맵 하이퍼링크 (Analysis.xlsm 용)
+            # 2. 웨이퍼 맵 하이퍼링크 (웨이퍼 맵 통합 이미지 열기)
             elif column_title == 'Map_Image_Link':
                 target_image = data_cell.value
                 if target_image:
-                    data_cell.value = f'=HYPERLINK("{target_image}", "🗺️ 웨이퍼 맵 확인")'
+                    data_cell.value = f'=HYPERLINK("{target_image}", "🗺️ 웨이퍼 맵 통합 이미지 보기")'
+                    data_cell.font = link_font
+                    data_cell.alignment = Alignment(horizontal='center')
+
+            # 3. 박스 플롯 하이퍼링크 (박스 플롯 통합 이미지 열기)
+            elif column_title == 'BoxPlot_Image_Link':
+                target_image = data_cell.value
+                if target_image:
+                    data_cell.value = f'=HYPERLINK("{target_image}", "📊 박스 플롯 통합 이미지 보기")'
                     data_cell.font = link_font
                     data_cell.alignment = Alignment(horizontal='center')
 
@@ -105,7 +113,7 @@ def apply_excel_style(worksheet, dataframe):
             # 에러 행 하이라이트
             if 'Status' in col_idx:
                 status_value = worksheet.cell(row=row_num, column=col_idx['Status']).value
-                if status_value == "이상 발생" and column_title not in ['Folder_Link', 'Map_Image_Link']:
+                if status_value == "이상 발생" and column_title not in ['Folder_Link', 'Map_Image_Link', 'BoxPlot_Image_Link']:
                     data_cell.fill = error_fill
 
     for col in worksheet.columns:
@@ -189,28 +197,34 @@ for d in parse_wafer_data(zip_path, target_wafers):
         'IL_dB': il_val, 'ER_dB': er_val, 'VpiL_Vcm': vpil_val, 'R_Squared': r_squared
     })
 
-# --- 전체 데이터 정리 ---
+# --- 전체 데이터 정리 및 날짜 병합 ---
 df_full = pd.DataFrame(data_list).groupby(['Wafer', 'Band', 'Date', 'Column', 'Row', 'Radius'], as_index=False).min(
     numeric_only=True)
 df_full['Status'], df_full['Reason'] = zip(*df_full.apply(check_status, axis=1))
 
 
-# 🌟 1. 'Folder_Link' 컬럼을 통해 병합된 PNG 파일 지정
+# [추가된 부분] 0603, 0604 데이터 병합
+def merge_midnight_dates(date_val):
+    date_str = str(date_val)
+    if '0603' in date_str or '0604' in date_str:
+        return '0603_0604_Combined'
+    return date_str
+
+
+df_full['Date'] = df_full['Date'].apply(merge_midnight_dates)
+print("🕒 0603 및 0604 날짜 데이터를 '0603_0604_Combined'로 통합했습니다.")
+
+
+# 🌟 1. 개별 다이 이미지 경로 생성
 def generate_die_paths(row):
     wafer = str(row['Wafer'])
     date = str(row['Date'])
     c = int(row['Column'])
     r = int(row['Row'])
     band = str(row['Band'])
-
-    # 날짜 폴더에서 바로 접근
     base_dir = f"C:\\Users\\sodlg\\PycharmProjects\\PE2\\res\\png\\{wafer}\\{date}"
-
-    # 병합 이미지 파일명 적용
     image_name = f"HY202103_{wafer}_({c},{r})_LION1_DCM_{band}.png"
-    image_path = f"{base_dir}\\{image_name}"
-
-    return image_path
+    return f"{base_dir}\\{image_name}"
 
 
 df_full['Folder_Link'] = df_full.apply(generate_die_paths, axis=1)
@@ -223,14 +237,12 @@ print("▶ 결과 파일 저장을 시작합니다...")
 # ==========================================================
 csv_df = df_full.drop(columns=['Folder_Link'], errors='ignore')
 
-# 1. 개별 CSV 저장
 for wafer_id in csv_df['Wafer'].unique():
     wafer_csv = csv_df[csv_df['Wafer'] == wafer_id]
     csv_file_path = os.path.join(save_dir_csv, f"{wafer_id}_Process_result.csv")
     wafer_csv.to_csv(csv_file_path, index=False, encoding='utf-8-sig')
     print(f"  - 개별 순수 CSV 저장 완료: {csv_file_path}")
 
-# 2. 전체 데이터 통합 CSV 저장
 total_csv_path = os.path.join(save_dir_csv, "Total_Process_result.csv")
 csv_df.to_csv(total_csv_path, index=False, encoding='utf-8-sig')
 print(f"  - 🌟 전체 통합 CSV 저장 완료: {total_csv_path}")
@@ -240,7 +252,6 @@ print("--------------------------------------------------")
 # ==========================================================
 # [엑셀 XLSX 파일 생성] (병합 이미지 링크 포함)
 # ==========================================================
-# 1. 개별 웨이퍼 파일 (XLSX) 생성
 for wafer_id in df_full['Wafer'].unique():
     wafer_df = df_full[df_full['Wafer'] == wafer_id].copy()
     wafer_file_path = os.path.join(save_dir_xlsx, f"{wafer_id}_Process_result.xlsx")
@@ -249,47 +260,51 @@ for wafer_id in df_full['Wafer'].unique():
         apply_excel_style(writer.sheets['Analysis_Result'], wafer_df)
     print(f"  - 개별 XLSX 저장 완료: {wafer_file_path}")
 
-# 2. [추가됨] 전체 데이터 통합 엑셀 파일 (XLSX) 생성
 total_xlsx_path = os.path.join(save_dir_xlsx, "Total_Process_result.xlsx")
 with pd.ExcelWriter(total_xlsx_path, engine='openpyxl') as writer:
     df_full.to_excel(writer, index=False, sheet_name='Analysis_Result')
     apply_excel_style(writer.sheets['Analysis_Result'], df_full)
 print(f"  - 🌟 전체 통합 XLSX 저장 완료: {total_xlsx_path}")
 
-
 # ==========================================================
-# 3. 새로운 Analysis.xlsm 및 Analysis.csv 생성 (웨이퍼 맵 포함)
+# 3. 새로운 Analysis.xlsm 및 Analysis.csv 생성 (통합 이미지 직접 링크)
 # ==========================================================
 df_index = df_full[['Wafer', 'Date', 'Band']].drop_duplicates().reset_index(drop=True)
 
 
+# 🌟 웨이퍼 맵 통합 파일 경로 링크 생성
 def generate_map_paths(row):
     wafer = str(row['Wafer'])
     date = str(row['Date'])
     band = str(row['Band'])
-
-    # Analysis 폴더 내 웨이퍼 맵 경로
-    folder_path = f"C:\\Users\\sodlg\\PycharmProjects\\PE2\\res\\png\\Analysis\\{wafer}\\{date}"
-    image_name = f"Summary_WaferMap_{wafer}_{band}_{date}.png"
-    image_path = f"{folder_path}\\{image_name}"
-
-    return image_path
+    return f"C:\\Users\\sodlg\\PycharmProjects\\PE2\\res\\png\\WaferMap\\{wafer}\\{date}\\Summary_WaferMap_{wafer}_{band}_{date}.png"
 
 
-# 인덱스 데이터프레임에 맵 링크 전용으로 적용
+# 🌟 박스 플롯 통합 파일 경로 링크 생성
+def generate_boxplot_paths(row):
+    wafer = str(row['Wafer'])
+    date = str(row['Date'])
+    band = str(row['Band'])
+    return f"C:\\Users\\sodlg\\PycharmProjects\\PE2\\res\\png\\BoxPlot\\{wafer}\\{date}\\Summary_BoxPlot_{wafer}_{band}_{date}.png"
+
+
+# 링크 적용 (이름 변경)
 df_index['Map_Image_Link'] = df_index.apply(generate_map_paths, axis=1)
+df_index['BoxPlot_Image_Link'] = df_index.apply(generate_boxplot_paths, axis=1)
 
-# Analysis.csv 저장 (하이퍼링크 포맷 없이 텍스트 경로 혹은 드랍 후 저장)
+# Analysis.csv 저장 (경로 제거)
 analysis_csv_path = os.path.join(save_dir_csv, "Analysis.csv")
-df_index.drop(columns=['Map_Image_Link'], errors='ignore').to_csv(analysis_csv_path, index=False, encoding='utf-8-sig')
-print(f"  - 🌟 마스터 CSV 저장 완료 (웨이퍼 맵 대시보드 리스트): {analysis_csv_path}")
+df_index.drop(columns=['Map_Image_Link', 'BoxPlot_Image_Link'], errors='ignore').to_csv(analysis_csv_path,
+                                                                                          index=False,
+                                                                                          encoding='utf-8-sig')
+print(f"  - 🌟 마스터 CSV 저장 완료: {analysis_csv_path}")
 
-# Analysis.xlsm 저장
+# Analysis.xlsm 저장 (대시보드 형태)
 total_file_path = os.path.join(save_dir_xlsx, "Analysis.xlsm")
 with pd.ExcelWriter(total_file_path, engine='openpyxl') as writer:
-    df_index.to_excel(writer, index=False, sheet_name='WaferMap_Dashboard')
-    apply_excel_style(writer.sheets['WaferMap_Dashboard'], df_index)
-print(f"  - 마스터 XLSX 저장 완료 (웨이퍼 맵 대시보드 링크 포함): {total_file_path}")
+    df_index.to_excel(writer, index=False, sheet_name='Dashboard_Links')
+    apply_excel_style(writer.sheets['Dashboard_Links'], df_index)
+print(f"  - 🌟 마스터 XLSX 저장 완료 (통합 이미지 다이렉트 링크 연결 완료): {total_file_path}")
 
 print("--------------------------------------------------")
 print(f"✅ 모든 분석 및 파일 생성이 성공적으로 완료되었습니다!")

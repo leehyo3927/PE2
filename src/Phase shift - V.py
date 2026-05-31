@@ -77,16 +77,39 @@ def _draw_and_save_phase(args):
 
     ph_arr = np.rad2deg(np.unwrap(np.deg2rad((np.array(phases) + 180) % 360 - 180)))
 
-    plt.figure(figsize=(8, 5))
-    plt.plot(biases, ph_arr, marker='o', lw=2)
-    plt.axhline(0, ls='--', alpha=0.5)
-    plt.axvline(0, ls='--', alpha=0.5)
-    plt.xlabel("Bias Voltage (V)")
-    plt.ylabel("Phase Shift (deg)")
-    plt.title(f"{d['wafer_id']} ({d['die_c']},{d['die_r']}) {d['band']}\nPhase Shift")
-    plt.grid(True)
+    # ------------------- 그래프 그리기 (Standard Style 적용) -------------------
+    # [스타일 1] 이전 그래프들과 병합 시 비율이 맞도록 figsize 통일
+    plt.figure(figsize=(10, 6))
 
-    # --- [수정] 날짜별 폴더 하위에 바로 저장 ---
+    # 데이터 선 및 마커 두껍게 설정
+    plt.plot(biases, ph_arr, marker='o', markersize=8, linewidth=2.5)
+
+    # 0 기준선 굵고 또렷하게 (가로, 세로)
+    plt.axhline(0, color='gray', ls='--', linewidth=2, alpha=0.6)
+    plt.axvline(0, color='gray', ls='--', linewidth=2, alpha=0.6)
+
+    # [스타일 2] 제목, 축 라벨 크기 및 굵기 적용
+    plt.title(f"Wafer: {d['wafer_id']} / Coord: ({d['die_c']}, {d['die_r']}) / Band: {d['band']}\nPhase Shift",
+              fontsize=18, fontweight='bold', pad=15)
+    plt.xlabel("Bias Voltage (V)", fontsize=16, fontweight='bold')
+    plt.ylabel("Phase Shift (deg)", fontsize=16, fontweight='bold')
+
+    # [스타일 3] 축 눈금(Tick) 숫자 굵기 및 크기 적용
+    plt.xticks(fontsize=13, fontweight='bold')
+    plt.yticks(fontsize=13, fontweight='bold')
+
+    # [스타일 5] 격자(Grid) 점선 및 반투명 처리
+    plt.grid(True, linestyle='--', alpha=0.6, linewidth=1)
+
+    # [스타일 6] 그래프 테두리(Spines) 두껍게
+    ax = plt.gca()
+    for spine in ax.spines.values():
+        spine.set_linewidth(2)
+
+    # [스타일 7] 불필요한 여백 제거
+    plt.tight_layout()
+
+    # --- 날짜별 폴더 하위에 바로 저장 ---
     date_str = d.get('date', 'Unknown_Date')
 
     # coord_folder를 생략하고 날짜 폴더까지만 경로 설정

@@ -14,19 +14,17 @@ def _draw_and_save_flat(args):
     m = (d['ref_data']['wl'] >= d['wl_min']) & (d['ref_data']['wl'] <= d['wl_max'])
     v_ref_wl, v_ref_il = d['ref_data']['wl'][m], d['ref_data']['il'][m]
 
-    # 데이터가 4개 미만이면 polyfit 불가능하므로 건너뜀 (기존의 continue)
+    # 데이터가 4개 미만이면 polyfit 불가능하므로 건너뜀
     if len(v_ref_wl) < 4:
         return None
 
     # 기준 데이터(REF) 3차 다항식 피팅
     poly = np.poly1d(np.polyfit(v_ref_wl, v_ref_il, 3))
 
+    # ------------------- 그래프 그리기 (Standard Style 적용) -------------------
     plt.figure(figsize=(10, 6))
 
-    # 평탄화된 기준 데이터 플롯
-    plt.plot(v_ref_wl, v_ref_il - poly(v_ref_wl), label='REF', color='black', lw=2.5)
-
-    # 각 바이어스 데이터 평탄화 및 플롯
+    # 각 바이어스 데이터 평탄화 및 플롯 (선 두껍게 적용)
     for b in d['bias_data_list']:
         m_b = (b['wl'] >= d['wl_min']) & (b['wl'] <= d['wl_max'])
         v_wl, v_il = b['wl'][m_b], b['il'][m_b]
@@ -43,19 +41,43 @@ def _draw_and_save_flat(args):
             linear_fit = np.poly1d(np.polyfit(v_wl[peaks], flat_il[peaks], 1))
             flat_il -= linear_fit(v_wl)
 
-        plt.plot(v_wl, flat_il, label=b['label'], alpha=0.8)
+        plt.plot(v_wl, flat_il, label=b['label'], alpha=0.8, linewidth=2.5)
 
-    # 그래프 꾸미기
-    plt.title(f"Wafer: {d['wafer_id']} / Coord: ({d['die_c']}, {d['die_r']}) / Band: {d['band']} Flattened")
-    plt.xlabel('Wavelength [nm]')
-    plt.ylabel('Transmission [dB]')
-    plt.axhline(0, color='gray', ls='--')
+    # 평탄화된 기준 데이터 플롯 (다른 선들을 덮지 않도록 맨 마지막에 그리는 것이 좋습니다)
+    plt.plot(v_ref_wl, v_ref_il - poly(v_ref_wl), label='REF',
+             linewidth=2.5, color='black', alpha=0.8, linestyle='--')
+
+    # [스타일 2] 제목, 축 라벨 크기 및 굵기 적용
+    plt.title(f"Wafer: {d['wafer_id']} / Coord: ({d['die_c']}, {d['die_r']}) / Band: {d['band']} Flattened",
+              fontsize=18, fontweight='bold', pad=15)
+    plt.xlabel('Wavelength (nm)', fontsize=16, fontweight='bold')
+    plt.ylabel('Transmission (dB)', fontsize=16, fontweight='bold')
+
+    # y=0 기준선 굵게
+    plt.axhline(0, color='gray', ls='--', linewidth=2)
+
     plt.xlim(d['wl_min'], d['wl_max'])
     plt.ylim(-65, 5)
-    plt.legend(bbox_to_anchor=(1.05, 1), loc='upper left')
-    plt.grid(True, ls='--')
 
-    # --- [수정] 날짜별 폴더 하위에 바로 저장 ---
+    # [스타일 3] 축 눈금(Tick) 숫자 굵기 및 크기 적용
+    plt.xticks(fontsize=13, fontweight='bold')
+    plt.yticks(fontsize=13, fontweight='bold')
+
+    # [스타일 4] 범례(Legend) 폰트 굵게
+    plt.legend(loc='best', prop={'size': 12, 'weight': 'bold'})
+
+    # [스타일 5] 격자(Grid) 점선 및 반투명 처리
+    plt.grid(True, linestyle='--', alpha=0.6, linewidth=1)
+
+    # [스타일 6] 그래프 테두리(Spines) 두껍게
+    ax = plt.gca()
+    for spine in ax.spines.values():
+        spine.set_linewidth(2)
+
+    # [스타일 7] 불필요한 여백 제거
+    plt.tight_layout()
+
+    # ------------------- 저장 경로 설정 -------------------
     date_str = d.get('date', 'Unknown_Date')
 
     # coord_folder를 거치지 않고 wafer_id와 date_str 폴더까지만 생성
@@ -88,7 +110,7 @@ def main():
     print(f"▶ 기본 평탄화 플롯 생성 ({total_items}개, 병렬 처리 중)...")
 
     success_count = 0
-    # 8코어 풀가동
+    # 풀가동
     with ProcessPoolExecutor(max_workers=None) as ex:
         futures = [ex.submit(_draw_and_save_flat, t) for t in tasks]
 

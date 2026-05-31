@@ -9,20 +9,43 @@ def _draw_and_save_plot(args):
     # args로 묶여서 전달된 데이터(d)와 저장 경로(base_save_dir)를 풀어줍니다.
     d, base_save_dir = args
 
-    # ------------------- 그래프 그리기 -------------------
+    # ------------------- 그래프 그리기 (Standard Style 적용) -------------------
     plt.figure(figsize=(10, 6))
+
+    # [스타일 1] 데이터 선 두껍게 (linewidth=2.5)
     for b in d['bias_data_list']:
-        plt.plot(b['wl'], b['il'], label=b['label'])
-    plt.plot(d['ref_data']['wl'], d['ref_data']['il'], label=d['ref_data']['label'])
+        plt.plot(b['wl'], b['il'], label=b['label'], linewidth=2.5)
 
-    plt.title(f"Wafer: {d['wafer_id']} / Coord: ({d['die_c']}, {d['die_r']}) / Band: {d['band']}")
+    # Reference 데이터 선 굵게 (검은색 점선으로 강조하면 더 좋습니다, 필요에 따라 컬러 변경 가능)
+    plt.plot(d['ref_data']['wl'], d['ref_data']['il'], label=d['ref_data']['label'],
+             linewidth=2.5, color='black', alpha=0.8, linestyle='--')
+
+    # [스타일 2] 제목, 축 라벨 크기 및 굵기 적용
+    plt.title(f"Wafer: {d['wafer_id']} / Coord: ({d['die_c']}, {d['die_r']}) / Band: {d['band']}",
+              fontsize=18, fontweight='bold', pad=15)
+    plt.xlabel("Wavelength (nm)", fontsize=16, fontweight='bold')
+    plt.ylabel("Transmission (dB)", fontsize=16, fontweight='bold')
     plt.ylim(-65, 5)
-    plt.xlabel("Wavelength (nm)")
-    plt.ylabel("IL (dB)")
-    plt.legend(loc='best')
-    plt.grid(True)
 
-    # ------------------- [수정] 저장 경로 설정 -------------------
+    # [스타일 3] 축 눈금(Tick) 숫자 굵기 및 크기 적용
+    plt.xticks(fontsize=13, fontweight='bold')
+    plt.yticks(fontsize=13, fontweight='bold')
+
+    # [스타일 4] 범례(Legend) 폰트 굵게
+    plt.legend(loc='best', prop={'size': 12, 'weight': 'bold'})
+
+    # [스타일 5] 격자(Grid) 점선 및 반투명 처리 (데이터 방해 최소화)
+    plt.grid(True, linestyle='--', alpha=0.6, linewidth=1)
+
+    # [스타일 6] 그래프 테두리(Spines) 두껍게
+    ax = plt.gca()
+    for spine in ax.spines.values():
+        spine.set_linewidth(2)
+
+    # [스타일 7] 불필요한 여백 제거
+    plt.tight_layout()
+
+    # ------------------- 저장 경로 설정 -------------------
     date_str = d.get('date', 'Unknown_Date')
 
     # coord_folder를 거치지 않고 웨이퍼ID/날짜 폴더까지만 생성하여 바로 위치시킵니다.
@@ -46,7 +69,6 @@ def main():
 
     print("▶ 데이터 파싱을 시작합니다...")
     # 2. 제너레이터에서 데이터를 모두 추출하여 리스트로 만듭니다. (작업 분배용)
-    # 메모리가 충분하다면 리스트로 변환하는 것이 병렬 처리 분배에 좋습니다.
     parsed_data_list = list(parse_wafer_data(zip_path, target_wafers))
     total_tasks = len(parsed_data_list)
     print(f"▶ 총 {total_tasks}개의 그래프 데이터를 불러왔습니다.")
@@ -63,9 +85,6 @@ def main():
         # 진행 상황 확인 (선택 사항)
         for i, f in enumerate(futures, 1):
             f.result()  # 에러 발생 시 여기서 멈추고 에러 로그를 보여줌
-            # 진행률을 보고 싶다면 아래 주석을 해제하세요.
-            # if i % 10 == 0:
-            #     print(f"   - 진행 상황: {i}/{total_tasks} 완료")
 
     print(f"✅ 총 {total_tasks}개 플롯 저장 완료")
 

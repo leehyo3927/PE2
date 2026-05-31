@@ -32,10 +32,8 @@ def _draw_and_save_zoomed_plot(args):
         r_squared = 1 - (ss_res / ss_tot)
     # ---------------------------
 
+    # ------------------- 그래프 그리기 (Standard Style 적용) -------------------
     plt.figure(figsize=(10, 6))
-
-    # 범례에 계산된 R^2 값을 표시
-    plt.plot(v_ref_wl, sm_ref - y_fitted, label=f'REF (R^2={r_squared:.4f})', color='black', lw=2.5, zorder=10)
 
     z_min, z_max = d['wl_min'], d['wl_max']
     tgt_bias = next((b for b in d['bias_data_list'] if b['bias'] == -2.0),
@@ -75,19 +73,45 @@ def _draw_and_save_zoomed_plot(args):
         if len(peaks) >= 2:
             flat_il -= np.poly1d(np.polyfit(v_wl[peaks], flat_il[peaks], 1))(v_wl)
 
-        plt.plot(v_wl, flat_il, label=b['label'], alpha=0.8)
+        # [스타일 1] 데이터 선 두껍게
+        plt.plot(v_wl, flat_il, label=b['label'], alpha=0.8, linewidth=2.5)
 
+    # 범례에 계산된 R^2 값을 표시 (다른 선들을 덮지 않도록 맨 마지막에 플로팅)
+    # [스타일 1.5] Reference 라인은 굵은 점선 처리
+    plt.plot(v_ref_wl, sm_ref - y_fitted, label=f'REF (R^2={r_squared:.4f})',
+             color='black', lw=2.5, zorder=10, linestyle='--')
+
+    # [스타일 2] 제목, 축 라벨 크기 및 굵기 적용
     plt.title(
-        f"Wafer: {d['wafer_id']} / Coord: ({d['die_c']}, {d['die_r']}) / Band: {d['band']}\nSmoothed, Flattened & Zoomed")
-    plt.xlabel('Wavelength [nm]')
-    plt.ylabel('Transmission [dB]')
-    plt.axhline(0, color='gray', ls='--', alpha=0.6)
+        f"Wafer: {d['wafer_id']} / Coord: ({d['die_c']}, {d['die_r']}) / Band: {d['band']}\nSmoothed, Flattened & Zoomed",
+        fontsize=18, fontweight='bold', pad=15)
+    plt.xlabel('Wavelength (nm)', fontsize=16, fontweight='bold')
+    plt.ylabel('Transmission (dB)', fontsize=16, fontweight='bold')
+
+    # y=0 기준선 굵게
+    plt.axhline(0, color='gray', ls='--', alpha=0.6, linewidth=2)
 
     plt.xlim(z_min, z_max)
-    plt.legend(bbox_to_anchor=(1.25, 1.0))
-    plt.grid(True, ls='--', alpha=0.7)
 
-    # --- [수정] 날짜별 폴더 하위에 바로 저장 ---
+    # [스타일 3] 축 눈금(Tick) 숫자 굵기 및 크기 적용
+    plt.xticks(fontsize=13, fontweight='bold')
+    plt.yticks(fontsize=13, fontweight='bold')
+
+    # [스타일 4] 범례(Legend) 폰트 굵게 및 최적 위치 배치
+    plt.legend(loc='best', prop={'size': 12, 'weight': 'bold'})
+
+    # [스타일 5] 격자(Grid) 점선 및 반투명 처리
+    plt.grid(True, linestyle='--', alpha=0.6, linewidth=1)
+
+    # [스타일 6] 그래프 테두리(Spines) 두껍게
+    ax = plt.gca()
+    for spine in ax.spines.values():
+        spine.set_linewidth(2)
+
+    # [스타일 7] 불필요한 여백 제거
+    plt.tight_layout()
+
+    # --- 날짜별 폴더 하위에 바로 저장 ---
     date_str = d.get('date', 'Unknown_Date')
 
     # coord_folder를 거치지 않고 wafer_id와 date_str 폴더까지만 경로로 지정합니다.
@@ -117,7 +141,7 @@ def main():
     print(f"▶ 리플 제거 및 확대 플롯 생성 ({total_items}개, 병렬 처리 중)...")
 
     success_count = 0
-    # 8코어 풀가동
+    # 풀가동
     with ProcessPoolExecutor(max_workers=None) as ex:
         futures = [ex.submit(_draw_and_save_zoomed_plot, t) for t in tasks]
 

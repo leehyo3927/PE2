@@ -9,8 +9,11 @@ base_res_dir = "../res/png"
 target_wafers = ['D07', 'D08', 'D23', 'D24']
 IL_TARGETS = {'LMZO': -8.75, 'LMZC': -8.75}
 
-global_analysis_dir = os.path.join(base_res_dir, "Analysis")
-os.makedirs(global_analysis_dir, exist_ok=True)
+# 1. WaferMap과 BoxPlot 최상위 경로 설정
+wafer_map_dir = os.path.join(base_res_dir, "WaferMap")
+box_plot_dir = os.path.join(base_res_dir, "BoxPlot")
+os.makedirs(wafer_map_dir, exist_ok=True)
+os.makedirs(box_plot_dir, exist_ok=True)
 
 print("🚀 IL 추출 및 날짜별/Center vs Edge 통합 분석을 시작합니다...")
 
@@ -32,6 +35,21 @@ for d in parse_wafer_data(zip_path, target_wafers):
 df = pd.DataFrame(il_data_list).groupby(['Wafer', 'Band', 'Date', 'Column', 'Row'], as_index=False)['IL'].mean()
 df['Radius'] = np.sqrt(df['Column'] ** 2 + df['Row'] ** 2)
 
+
+# ==========================================================
+# 2. 자정을 넘긴 측정 데이터(0603, 0604) 병합 처리
+# ==========================================================
+def merge_midnight_dates(date_val):
+    date_str = str(date_val)
+    if '0603' in date_str or '0604' in date_str:
+        return '20190603'
+    return date_str
+
+
+df['Date'] = df['Date'].apply(merge_midnight_dates)
+print("🕒 0603 및 0604 날짜 데이터를 '0603_0604_Combined'로 통합했습니다.")
+# ==========================================================
+
 filtered_df = pd.DataFrame()
 for _, group in df.groupby(['Wafer', 'Band', 'Date']):
     m, s = group['IL'].mean(), group['IL'].std()
@@ -43,6 +61,7 @@ filtered_df['Region'] = np.where(filtered_df['Radius'] > max_rad * 0.75, 'Edge',
 # ==========================================================
 # [통일된 디자인] Wafer Map 그리기
 # ==========================================================
+print("▶ 웨이퍼 및 날짜별 Wafer Map 생성 중...")
 for b in filtered_df['Band'].unique():
     limits = {'min': np.floor(filtered_df[filtered_df['Band'] == b]['IL'].min()),
               'max': np.ceil(filtered_df[filtered_df['Band'] == b]['IL'].max())}
@@ -68,59 +87,68 @@ for b in filtered_df['Band'].unique():
         for l in cb.ax.yaxis.get_ticklabels(): l.set_weight("bold")
 
         plt.title(f"Wafer Map: {w} / {b} (IL)\nDate: {date}", fontsize=18, fontweight='bold', pad=15)
-        plt.axis('off')  # 군더더기 축/격자 제거
+        plt.axis('off')
         plt.gca().set_aspect('equal')
 
-        w_dir = os.path.join(global_analysis_dir, w, date)
+        # 저장 경로: WaferMap / 웨이퍼 / 날짜
+        w_dir = os.path.join(wafer_map_dir, w, date)
         os.makedirs(w_dir, exist_ok=True)
         plt.savefig(os.path.join(w_dir, f"Map_{w}_{b}_{date}_IL.png"), bbox_inches='tight')
         plt.close()
 
 # ==========================================================
-# [통일된 디자인] Box Plot 그리기
+# 3. [통일된 디자인] Box Plot 그리기 (개별 웨이퍼 단위)
 # ==========================================================
-for b in ['LMZO', 'LMZC']:
-    b_df = filtered_df[filtered_df['Band'] == b]
-    if b_df.empty: continue
+print("▶ 웨이퍼 및 날짜별 Box Plot 생성 중...")
+for (w, b, date), wbd_df in filtered_df.groupby(['Wafer', 'Band', 'Date']):
+    if wbd_df.empty: continue
 
-    for date, date_df in b_df.groupby('Date'):
-        plt.figure(figsize=(14, 8))
-        pos, data, lbl, clr = [], [], [], []
+    plt.figure(figsize=(8, 8))  # 개별 웨이퍼 플롯 사이즈
+    pos, data, lbl, clr = [], [], [], []
 
-        for i, w in enumerate(sorted(date_df['Wafer'].unique())):
-            w_df = date_df[date_df['Wafer'] == w]
-            c, e = w_df[w_df['Region'] == 'Center']['IL'].values, w_df[w_df['Region'] == 'Edge']['IL'].values
-            if len(c) > 0: pos.append(i * 3 + 1); data.append(c); lbl.append(f"{w}\n(C)\nn={len(c)}"); clr.append(
-                '#3498db')
-            if len(e) > 0: pos.append(i * 3 + 2); data.append(e); lbl.append(f"{w}\n(E)\nn={len(e)}"); clr.append(
-                '#e74c3c')
+    c = wbd_df[wbd_df['Region'] == 'Center']['IL'].values
+    e = wbd_df[wbd_df['Region'] == 'Edge']['IL'].values
 
-        if not data: continue
+    if len(c) > 0:
+        pos.append(1);
+        data.append(c);
+        lbl.append(f"Center\nn={len(c)}");
+        clr.append('#3498db')
+    if len(e) > 0:
+        pos.append(2);
+        data.append(e);
+        lbl.append(f"Edge\nn={len(e)}");
+        clr.append('#e74c3c')
 
-        box = plt.boxplot(data, positions=pos, patch_artist=True,
-                          flierprops=dict(marker='d', markerfacecolor='black', markersize=6, alpha=0.6))
-        for p, c_hex in zip(box['boxes'], clr): p.set_facecolor(c_hex); p.set_alpha(0.6)
+    if not data: continue
 
-        # Jitter(산점도) 추가
-        for p, d_arr in zip(pos, data):
-            plt.scatter(np.random.normal(p, 0.05, len(d_arr)), d_arr, color='black', alpha=0.5, s=20, zorder=3)
+    box = plt.boxplot(data, positions=pos, patch_artist=True, widths=0.5,
+                      flierprops=dict(marker='d', markerfacecolor='black', markersize=6, alpha=0.6))
+    for p, c_hex in zip(box['boxes'], clr): p.set_facecolor(c_hex); p.set_alpha(0.6)
 
-        avg_il, tgt_il = date_df['IL'].mean(), IL_TARGETS.get(b, -8.75)
-        plt.axhline(avg_il, color='blue', ls='--', lw=2.5, label=f'Avg: {avg_il:.2f} dB')
-        plt.axhline(tgt_il, color='red', ls='-', lw=2.5, label=f'Target: {tgt_il:.2f} dB')
+    # Jitter(산점도) 추가
+    for p, d_arr in zip(pos, data):
+        plt.scatter(np.random.normal(p, 0.05, len(d_arr)), d_arr, color='black', alpha=0.5, s=20, zorder=3)
 
-        plt.title(f"IL Analysis ({b}) : Center vs Edge\nDate: {date}", fontsize=18, fontweight='bold', pad=15)
-        plt.xticks(pos, lbl, fontsize=13, fontweight='bold')
-        plt.yticks(fontsize=14, fontweight='bold')
-        plt.ylabel('IL [dB]', fontsize=16, fontweight='bold')
-        plt.legend(loc='upper right', prop={'size': 13, 'weight': 'bold'})
-        plt.grid(True, axis='y', ls=':', alpha=0.6)
-        plt.xlim(0, max(pos) + 1)
-        plt.tight_layout()
+    avg_il = wbd_df['IL'].mean()
+    tgt_il = IL_TARGETS.get(b, -8.75)
 
-        box_dir = os.path.join(global_analysis_dir, "Overall_BoxPlots", date)
-        os.makedirs(box_dir, exist_ok=True)
-        plt.savefig(os.path.join(box_dir, f"Box_{b}_{date}_IL.png"), bbox_inches='tight')
-        plt.close()
+    plt.axhline(avg_il, color='blue', ls='--', lw=2.5, label=f'Avg: {avg_il:.2f} dB')
+    plt.axhline(tgt_il, color='red', ls='-', lw=2.5, label=f'Target: {tgt_il:.2f} dB')
 
-print("✅ 날짜별 IL 분석 결과(Wafer Map, Box Plot) 저장이 완료되었습니다!")
+    plt.title(f"IL Analysis : {w} ({b})\nDate: {date}", fontsize=18, fontweight='bold', pad=15)
+    plt.xticks(pos, lbl, fontsize=14, fontweight='bold')
+    plt.yticks(fontsize=14, fontweight='bold')
+    plt.ylabel('IL [dB]', fontsize=16, fontweight='bold')
+    plt.legend(loc='upper right', prop={'size': 13, 'weight': 'bold'})
+    plt.grid(True, axis='y', ls=':', alpha=0.6)
+    plt.xlim(0.5, max(pos) + 0.5)
+    plt.tight_layout()
+
+    # 저장 경로: BoxPlot / 웨이퍼 / 날짜
+    box_dir = os.path.join(box_plot_dir, w, date)
+    os.makedirs(box_dir, exist_ok=True)
+    plt.savefig(os.path.join(box_dir, f"Box_{w}_{b}_{date}_IL.png"), bbox_inches='tight')
+    plt.close()
+
+print("✅ 모든 그래프가 웨이퍼별/날짜별 폴더 구조로 저장이 완료되었습니다!")

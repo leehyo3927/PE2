@@ -11,6 +11,12 @@ target_wafers = ['D07', 'D08', 'D23', 'D24']
 
 print("🚀 평탄화 로직 기반 ER 추출 및 날짜별/Center vs Edge 분석을 시작합니다...")
 
+# 1. WaferMap과 BoxPlot 최상위 경로 설정
+wafer_map_dir = os.path.join(base_res_dir, "WaferMap")
+box_plot_dir = os.path.join(base_res_dir, "BoxPlot")
+os.makedirs(wafer_map_dir, exist_ok=True)
+os.makedirs(box_plot_dir, exist_ok=True)
+
 er_data_list = []
 count = 0
 
@@ -50,6 +56,20 @@ for d in parse_wafer_data(zip_path, target_wafers):
     if count % 100 == 0: print(f"현재 {count}개 Die 파싱 및 평탄화 ER 추출 완료...")
 
 df = pd.DataFrame(er_data_list)
+
+# ==========================================================
+# 2. 자정을 넘긴 측정 데이터(0603, 0604) 병합 처리
+# ==========================================================
+def merge_midnight_dates(date_val):
+    date_str = str(date_val)
+    if '0603' in date_str or '0604' in date_str:
+        return '20190603'
+    return date_str
+
+df['Date'] = df['Date'].apply(merge_midnight_dates)
+print("🕒 0603 및 0604 날짜 데이터를 '0603_0604_Combined'로 통합했습니다.")
+# ==========================================================
+
 filtered_df = pd.DataFrame()
 
 for (wafer, band, date), group in df.groupby(['Wafer', 'Band', 'Date']):
@@ -64,12 +84,10 @@ max_rad = filtered_df['Radius'].max()
 edge_thresh = max_rad * 0.75
 filtered_df['Region'] = np.where(filtered_df['Radius'] > edge_thresh, 'Edge', 'Center')
 
-global_analysis_dir = os.path.join(base_res_dir, "Analysis")
-os.makedirs(global_analysis_dir, exist_ok=True)
-
 # ==========================================================
 # [통일된 디자인] Wafer Map 그리기
 # ==========================================================
+print("▶ 웨이퍼 및 날짜별 Wafer Map 생성 중...")
 for b in filtered_df['Band'].unique():
     band_limits = {'min': np.floor(filtered_df[filtered_df['Band'] == b]['ER'].min()),
                    'max': np.ceil(filtered_df[filtered_df['Band'] == b]['ER'].max())}
@@ -95,67 +113,67 @@ for b in filtered_df['Band'].unique():
         for l in cb.ax.yaxis.get_ticklabels(): l.set_weight("bold")
 
         plt.title(f"Wafer Map: {w} / {b} (Flattened ER)\nDate: {date}", fontsize=18, fontweight='bold', pad=15)
-        plt.axis('off')  # 격자, 축 레이블 제거로 깔끔하게
+        plt.axis('off')
         plt.gca().set_aspect('equal')
 
-        w_dir = os.path.join(global_analysis_dir, w, date)
+        # 경로: WaferMap / 웨이퍼 / 날짜
+        w_dir = os.path.join(wafer_map_dir, w, date)
         os.makedirs(w_dir, exist_ok=True)
         plt.savefig(os.path.join(w_dir, f"Map_{w}_{b}_{date}_ER.png"), bbox_inches='tight')
         plt.close()
 
 # ==========================================================
-# [통일된 디자인] Box Plot 그리기
+# 3. [통일된 디자인] Box Plot 그리기 (개별 웨이퍼 단위)
 # ==========================================================
-for band in ['LMZO', 'LMZC']:
-    b_df = filtered_df[filtered_df['Band'] == band]
-    if b_df.empty: continue
+print("▶ 웨이퍼 및 날짜별 Box Plot 생성 중...")
+for (w, b, date), wbd_df in filtered_df.groupby(['Wafer', 'Band', 'Date']):
+    if wbd_df.empty: continue
 
-    for date, date_df in b_df.groupby('Date'):
-        avg_er = date_df['ER'].mean()
-        plt.figure(figsize=(14, 8))
-        pos, data, labels, colors = [], [], [], []
+    plt.figure(figsize=(8, 8)) # 개별 웨이퍼 플롯 사이즈
+    pos, data, labels, colors = [], [], [], []
 
-        for i, w in enumerate(sorted(date_df['Wafer'].unique())):
-            w_df = date_df[date_df['Wafer'] == w]
-            c, e = w_df[w_df['Region'] == 'Center']['ER'].values, w_df[w_df['Region'] == 'Edge']['ER'].values
+    c = wbd_df[wbd_df['Region'] == 'Center']['ER'].values
+    e = wbd_df[wbd_df['Region'] == 'Edge']['ER'].values
 
-            if len(c) > 0:
-                pos.append(i * 3 + 1)
-                data.append(c)
-                labels.append(f"{w}\n(C)\nn={len(c)}")
-                colors.append('#3498db')
-            if len(e) > 0:
-                pos.append(i * 3 + 2)
-                data.append(e)
-                labels.append(f"{w}\n(E)\nn={len(e)}")
-                colors.append('#e74c3c')
+    if len(c) > 0:
+        pos.append(1)
+        data.append(c)
+        labels.append(f"Center\nn={len(c)}")
+        colors.append('#3498db')
+    if len(e) > 0:
+        pos.append(2)
+        data.append(e)
+        labels.append(f"Edge\nn={len(e)}")
+        colors.append('#e74c3c')
 
-        if not data: continue
+    if not data: continue
 
-        box = plt.boxplot(data, positions=pos, patch_artist=True,
-                          flierprops=dict(marker='d', markerfacecolor='black', markersize=6, alpha=0.6))
-        for p, c in zip(box['boxes'], colors): p.set_facecolor(c); p.set_alpha(0.6)
+    box = plt.boxplot(data, positions=pos, patch_artist=True, widths=0.5,
+                      flierprops=dict(marker='d', markerfacecolor='black', markersize=6, alpha=0.6))
+    for p, c_hex in zip(box['boxes'], colors): p.set_facecolor(c_hex); p.set_alpha(0.6)
 
-        # Jitter
-        for p, d_arr in zip(pos, data):
-            plt.scatter(np.random.normal(p, 0.05, len(d_arr)), d_arr, color='black', alpha=0.5, s=20, zorder=3)
+    # Jitter
+    for p, d_arr in zip(pos, data):
+        plt.scatter(np.random.normal(p, 0.05, len(d_arr)), d_arr, color='black', alpha=0.5, s=20, zorder=3)
 
-        # 평균 및 타겟 라인
-        plt.axhline(avg_er, color='blue', ls='--', lw=2.5, label=f'Avg: {avg_er:.2f} dB')
-        plt.axhline(20.0, color='red', ls='-', lw=2.5, label='Target: 20.00 dB')
+    # 평균 및 타겟 라인
+    avg_er = wbd_df['ER'].mean()
+    plt.axhline(avg_er, color='blue', ls='--', lw=2.5, label=f'Avg: {avg_er:.2f} dB')
+    plt.axhline(20.0, color='red', ls='-', lw=2.5, label='Target: 20.00 dB')
 
-        plt.title(f"ER Analysis ({band}) : Center vs Edge\nDate: {date}", fontsize=18, fontweight='bold', pad=15)
-        plt.xticks(pos, labels, fontsize=13, fontweight='bold')
-        plt.yticks(fontsize=14, fontweight='bold')
-        plt.ylabel('Extinction Ratio [dB]', fontsize=16, fontweight='bold')
-        plt.legend(loc='upper right', prop={'size': 13, 'weight': 'bold'})
-        plt.grid(True, axis='y', ls=':', alpha=0.6)
-        plt.xlim(0, max(pos) + 1)
-        plt.tight_layout()
+    plt.title(f"ER Analysis : {w} ({b})\nDate: {date}", fontsize=18, fontweight='bold', pad=15)
+    plt.xticks(pos, labels, fontsize=14, fontweight='bold')
+    plt.yticks(fontsize=14, fontweight='bold')
+    plt.ylabel('Extinction Ratio [dB]', fontsize=16, fontweight='bold')
+    plt.legend(loc='upper right', prop={'size': 13, 'weight': 'bold'})
+    plt.grid(True, axis='y', ls=':', alpha=0.6)
+    plt.xlim(0.5, max(pos) + 0.5)
+    plt.tight_layout()
 
-        box_dir = os.path.join(global_analysis_dir, "Overall_BoxPlots", date)
-        os.makedirs(box_dir, exist_ok=True)
-        plt.savefig(os.path.join(box_dir, f"Box_{band}_{date}_ER_Flattened.png"), bbox_inches='tight')
-        plt.close()
+    # 경로: BoxPlot / 웨이퍼 / 날짜
+    box_dir = os.path.join(box_plot_dir, w, date)
+    os.makedirs(box_dir, exist_ok=True)
+    plt.savefig(os.path.join(box_dir, f"Box_{w}_{b}_{date}_ER_Flattened.png"), bbox_inches='tight')
+    plt.close()
 
 print("✅ 날짜별 ER 분석 및 저장 완료")

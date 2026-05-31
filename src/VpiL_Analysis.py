@@ -74,10 +74,13 @@ def main():
     L_length = 0.05
     TARGET_VPIL = {'LMZO': 1.4, 'LMZC': 2.0}
 
-    global_analysis_dir = os.path.join(base_res_dir, "Analysis")
-    os.makedirs(global_analysis_dir, exist_ok=True)
+    # WaferMap과 BoxPlot 최상위 경로 설정
+    wafer_map_dir = os.path.join(base_res_dir, "WaferMap")
+    box_plot_dir = os.path.join(base_res_dir, "BoxPlot")
+    os.makedirs(wafer_map_dir, exist_ok=True)
+    os.makedirs(box_plot_dir, exist_ok=True)
 
-    print("🚀 날짜별 분석용 데이터 추출을 시작합니다...")
+    print("🚀 분석용 데이터 추출을 시작합니다...")
 
     parsed_data_list = list(parse_wafer_data(zip_path, target_wafers))
     tasks = [(d, L_length) for d in parsed_data_list]
@@ -95,6 +98,20 @@ def main():
         return
 
     df = pd.DataFrame(summary_rows)
+
+    # ==========================================================
+    # [추가된 부분] 자정을 넘긴 측정 데이터(0603, 0604) 병합 처리
+    # ==========================================================
+    def merge_midnight_dates(date_val):
+        date_str = str(date_val)
+        if '0603' in date_str or '0604' in date_str:
+            return '20190603'
+        return date_str
+
+    df['Date'] = df['Date'].apply(merge_midnight_dates)
+    print("🕒 0603 및 0604 날짜 데이터를 '0603_0604_Combined'로 통합했습니다.")
+    # ==========================================================
+
     filtered_df = pd.DataFrame()
     df_grouped = df.groupby(['Wafer', 'Band', 'Date', 'Column', 'Row', 'Radius'], as_index=False)['VpiL_0V'].mean()
 
@@ -113,9 +130,9 @@ def main():
     print(f"✅ 데이터 추출 및 필터링 완료! (총 {len(filtered_df)}개 다이 분석)")
 
     # ==========================================================
-    # [통일된 디자인] Wafer Map 그리기
+    # Wafer Map 그리기 (Wafer -> Date 폴더별 저장)
     # ==========================================================
-    print("▶ 날짜별 Wafer Map 생성 중...")
+    print("▶ 웨이퍼 및 날짜별 Wafer Map 생성 중...")
     band_limits = {}
     for b in filtered_df['Band'].unique():
         b_data = filtered_df[filtered_df['Band'] == b]['VpiL_0V']
@@ -129,7 +146,6 @@ def main():
 
         v_min, v_max = band_limits[band]['min'], band_limits[band]['max']
 
-        # VpiL은 색상맵을 'coolwarm'으로 설정(낮을수록 좋은 경우가 많음)하되 나머지 속성은 통일
         scatter = plt.scatter(group['Column'], group['Row'], c=group['VpiL_0V'], cmap='coolwarm',
                               vmin=v_min, vmax=v_max, s=500, edgecolor='black', alpha=0.9, zorder=5)
 
@@ -143,73 +159,69 @@ def main():
         for l in cb.ax.yaxis.get_ticklabels(): l.set_weight("bold")
 
         plt.title(f"Wafer Map: {wafer} / {band} (VpiL)\nDate: {date}", fontsize=18, fontweight='bold', pad=15)
-        plt.axis('off')  # 격자, 축 레이블 제거
+        plt.axis('off')
         plt.gca().set_aspect('equal')
 
-        w_dir = os.path.join(global_analysis_dir, wafer, date)
+        # 경로: WaferMap / 웨이퍼 / 날짜
+        w_dir = os.path.join(wafer_map_dir, wafer, date)
         os.makedirs(w_dir, exist_ok=True)
         plt.savefig(os.path.join(w_dir, f"Map_{wafer}_{band}_{date}_VpiL_0V.png"), bbox_inches='tight')
         plt.close()
 
     # ==========================================================
-    # [통일된 디자인] Box Plot 그리기
+    # Box Plot 그리기 (Wafer -> Date 폴더별 저장)
     # ==========================================================
-    print("▶ 날짜별 Box Plot 생성 중...")
+    print("▶ 웨이퍼 및 날짜별 Box Plot 생성 중...")
 
-    for (band, date), band_date_df in filtered_df.groupby(['Band', 'Date']):
-        wafer_list = sorted(band_date_df['Wafer'].unique())
+    for (wafer, band, date), wbd_df in filtered_df.groupby(['Wafer', 'Band', 'Date']):
         current_target = TARGET_VPIL.get(band, 1.5)
-        # VpiL 평균값 계산 추가!
-        avg_vpil = band_date_df['VpiL_0V'].mean()
+        avg_vpil = wbd_df['VpiL_0V'].mean()
 
-        plt.figure(figsize=(14, 8))
+        plt.figure(figsize=(8, 8))
         pos, data, labels, colors = [], [], [], []
 
-        for i, wafer in enumerate(wafer_list):
-            w_df = band_date_df[band_date_df['Wafer'] == wafer]
-            c_data = w_df[w_df['Region'] == 'Center']['VpiL_0V'].values
-            e_data = w_df[w_df['Region'] == 'Edge']['VpiL_0V'].values
+        c_data = wbd_df[wbd_df['Region'] == 'Center']['VpiL_0V'].values
+        e_data = wbd_df[wbd_df['Region'] == 'Edge']['VpiL_0V'].values
 
-            if len(c_data) > 0:
-                pos.append(i * 3 + 1)
-                data.append(c_data)
-                labels.append(f"{wafer}\n(C)\nn={len(c_data)}")
-                colors.append('#3498db')
-            if len(e_data) > 0:
-                pos.append(i * 3 + 2)
-                data.append(e_data)
-                labels.append(f"{wafer}\n(E)\nn={len(e_data)}")
-                colors.append('#e74c3c')
+        if len(c_data) > 0:
+            pos.append(1)
+            data.append(c_data)
+            labels.append(f"Center\nn={len(c_data)}")
+            colors.append('#3498db')
+        if len(e_data) > 0:
+            pos.append(2)
+            data.append(e_data)
+            labels.append(f"Edge\nn={len(e_data)}")
+            colors.append('#e74c3c')
 
         if not data: continue
 
-        box = plt.boxplot(data, positions=pos, patch_artist=True,
+        box = plt.boxplot(data, positions=pos, patch_artist=True, widths=0.5,
                           flierprops=dict(marker='d', markerfacecolor='black', markersize=6, alpha=0.6))
         for p, c in zip(box['boxes'], colors): p.set_facecolor(c); p.set_alpha(0.6)
 
-        # Jitter 추가
         for p, d_arr in zip(pos, data):
             plt.scatter(np.random.normal(p, 0.05, len(d_arr)), d_arr, color='black', alpha=0.5, s=20, zorder=3)
 
-        # 평균 및 타겟 라인
         plt.axhline(avg_vpil, color='blue', ls='--', lw=2.5, label=f'Avg: {avg_vpil:.2f} V*cm')
         plt.axhline(current_target, color='red', ls='-', lw=2.5, label=f'Target: {current_target:.2f} V*cm')
 
-        plt.title(f"VpiL Analysis ({band}) : Center vs Edge\nDate: {date}", fontsize=18, fontweight='bold', pad=15)
-        plt.xticks(pos, labels, fontsize=13, fontweight='bold')
+        plt.title(f"VpiL Analysis : {wafer} ({band})\nDate: {date}", fontsize=18, fontweight='bold', pad=15)
+        plt.xticks(pos, labels, fontsize=14, fontweight='bold')
         plt.yticks(fontsize=14, fontweight='bold')
         plt.ylabel("Vpi*L @ 0V [V*cm]", fontsize=16, fontweight='bold')
         plt.legend(loc='upper right', prop={'size': 13, 'weight': 'bold'})
         plt.grid(True, axis='y', ls=':', alpha=0.6)
-        plt.xlim(0, max(pos) + 1)
+        plt.xlim(0.5, max(pos) + 0.5)
         plt.tight_layout()
 
-        box_dir = os.path.join(global_analysis_dir, "Overall_BoxPlots", date)
+        # 경로: BoxPlot / 웨이퍼 / 날짜
+        box_dir = os.path.join(box_plot_dir, wafer, date)
         os.makedirs(box_dir, exist_ok=True)
-        plt.savefig(os.path.join(box_dir, f"Box_{band}_{date}_VpiL_0V.png"), bbox_inches='tight')
+        plt.savefig(os.path.join(box_dir, f"Box_{wafer}_{band}_{date}_VpiL_0V.png"), bbox_inches='tight')
         plt.close()
 
-    print("✅ VpiL 날짜별 통합 플롯 저장이 완료되었습니다!")
+    print("✅ 모든 그래프가 웨이퍼별/날짜별 폴더 구조로 저장되었습니다!")
 
 
 if __name__ == "__main__":
