@@ -4,9 +4,9 @@
 ![Pandas](https://img.shields.io/badge/Pandas-Data%20Analysis-150458?logo=pandas&logoColor=white)
 ![Matplotlib](https://img.shields.io/badge/Matplotlib-Visualization-black?logo=python)
 
-> **XML 기반의 광학 소자(Wafer) 측정 데이터를 파싱하고, 정밀 분석(IL, ER, VpiL, Phase Shift)을 거쳐 시각화 및 통합 엑셀 대시보드를 생성하는 자동화 파이프라인입니다.**
+> **XML 기반의 Wafer 측정 데이터를 파싱하고 정밀 분석(IL, ER, VpiL, Phase Shift)하여 시각화 및 통합 엑셀 리포트를 생성하는 자동화 시스템입니다.**
 
-본 프로젝트는 수많은 Mach-Zehnder Modulator(MZM) 소자의 테스트 데이터를 단 한 번의 실행으로 분석하고, 그 결과를 직관적인 엑셀 리포트와 요약 이미지로 출력하여 연구 및 데이터 검증 시간을 획기적으로 단축해 줍니다.
+본 프로젝트는 광학 소자(Mach-Zehnder Modulator 등)의 웨이퍼 레벨 테스트 데이터를 자동으로 분석하고, 그 결과를 한눈에 파악할 수 있는 대시보드 형태의 리포트로 출력하는 End-to-End 파이프라인입니다.
 
 ---
 
@@ -59,34 +59,30 @@
 
 ## ⚙️ 데이터 분석 파이프라인 (Data Pipeline)
 
-`run.py` 실행 시 내부적으로 9개의 핵심 모듈이 순차적으로 동작합니다. 복잡한 측정 신호가 어떻게 정제되고 분석되는지 아래 과정에서 확인할 수 있습니다.
+`run.py` 실행 시 내부적으로 총 9개의 핵심 모듈이 순차적으로 동작하며 데이터를 가공합니다. 
 
-### 1. 데이터 추출 및 초기 시각화 (`plot.py`)
-측정 장비에서 얻은 원시 데이터(Raw Data)를 파싱하여 기본 스펙트럼 그래프를 그립니다.
-> ![Raw Data Plot](https://via.placeholder.com/600x300?text=Insert+Raw+Data+Plot+Image+Here)
+### 1. 데이터 추출 및 시각화 준비
+* **`data_parser.py` (데이터 파싱)**
+  * 원본 XML 데이터 파일에서 분석에 필요한 타겟 밴드(LMZC, LMZO) 스펙트럼 데이터를 불러옵니다.
+* **`plot.py` (원시 데이터 플롯)**
+  * 파싱된 Raw 데이터를 바탕으로 기본 파장-투과도(Transmission) 스펙트럼 플롯을 생성합니다.
 
-### 2. 신호 보정 (Flattening) (`flatting.py`)
-MZM 소자와 기준(Reference) 소자 간에 발생하는 빛의 손실 편차를 보정합니다. 비스듬하게 측정된 신호의 베이스라인을 반듯하게 평탄화하여 정확한 분석의 토대를 마련합니다.
-> ![Flattened Plot](https://via.placeholder.com/600x300?text=Insert+Flattened+Plot+Image+Here)
+### 2. 신호 보정 및 타겟 영역 추출
+* **`flatting.py` (신호 평탄화)**
+  * Reference 소자와 MZM 소자 간에 발생하는 오차를 보정하여 신호의 베이스라인을 평탄화(Flattening)합니다.
+* **`zoom.py` (타겟 파장 줌인)**
+  * 밴드별 특성에 맞춰 주요 분석 타겟 파장 영역을 집중적으로 확대합니다. (LMZC: 1550 nm / LMZO: 1310 nm)
+* **`Fitting.py` (노이즈 필터링 및 피팅)**
+  * 측정 신호 내부에 존재하는 리플(Ripple) 등의 고주파 노이즈를 제거하고, 다항식 피팅을 적용하여 데이터를 매끄럽게 정제합니다.
 
-### 3. 분석 영역 집중 (Zoom) (`zoom.py`)
-전체 파장 대역 중 밴드별로 가장 중요한 핵심 파장 영역만 돋보기처럼 확대하여 잘라냅니다.
-* **LMZC 밴드:** **1550 nm** 영역 집중 분석
-* **LMZO 밴드:** **1310 nm** 영역 집중 분석
-> ![Zoomed Plot](https://via.placeholder.com/600x300?text=Insert+Zoomed+Plot+Image+Here)
+### 3. 소자 성능 지표 연산
+* **`Phase shift - V.py` (위상 변화 연산)**
+  * 피팅된 그래프의 최소점(Dip)을 기준으로, 인가된 바이어스 전압(Bias Voltage)에 따라 파장이 얼마나 이동(Shift)하는지 추적하여 위상 변화량을 계산합니다.
+* **`VpiL.py` ($V_\pi L$ 추출)**
+  * 바이어스에 따른 위상 변화를 반파장 전압($V_\pi$)으로 환산하고, 소자의 길이($L$)를 곱하여 최종적인 전광 변조 효율 지표인 $V_\pi L$ 수치를 계산합니다.
 
-### 4. 노이즈 제거 및 데이터 정제 (`Fitting.py`)
-측정된 신호의 자글자글한 고주파 노이즈(Ripple)를 Savitzky-Golay 필터 등으로 걷어내고, 다항식 피팅(Polynomial Fitting)을 적용하여 신호를 부드럽고 정확한 곡선으로 다듬습니다.
-> ![Fitting Plot](https://via.placeholder.com/600x300?text=Insert+Fitting+Plot+Image+Here)
-
-### 5. 전압별 위상 변화 추적 (`Phase shift - V.py`)
-피팅된 그래프에서 빛의 투과도가 가장 낮은 지점(Dip)을 찾고, 인가된 전압(Bias Voltage)이 변할 때마다 이 지점이 파장축을 따라 얼마나 이동(Shift)하는지 위상 변화량을 계산합니다.
-> ![Phase Shift Plot](https://via.placeholder.com/600x300?text=Insert+Phase+Shift+Plot+Image+Here)
-
-### 6. 최종 효율 지표(VpiL) 산출 (`VpiL.py`)
-계산된 위상 변화량을 바탕으로 소자의 전광 변조 효율을 나타내는 핵심 지표인 **VpiL**을 추출하고 최종 트렌드 그래프를 생성합니다.
-> ![VpiL Plot](https://via.placeholder.com/600x300?text=Insert+VpiL+Plot+Image+Here)
-
-### 7. 대시보드 리포트 생성 (`combine_plot.py` & `export_summary.py`)
-위 6가지 과정에서 생성된 모든 그래프를 단 한 장의 3x2 요약 이미지로 병합합니다. 또한, 측정된 모든 수치 데이터(IL, ER, VpiL)를 엑셀 파일로 정리하며, **클릭 한 번에 해당 소자의 요약 이미지를 띄울 수 있도록 엑셀 내부에 하이퍼링크를 자동 매핑**합니다.
-> ![Combined Dashboard](https://via.placeholder.com/800x450?text=Insert+Combined+Dashboard+Image+Here)
+### 4. 시각화 병합 및 리포트 자동 생성
+* **`combine_plot.py` (대시보드 이미지 병합)**
+  * 개별 분석 과정을 거치며 생성된 여러 장의 그래프를 웨이퍼(Wafer) 및 날짜별로 묶어 **단 한 장의 요약 대시보드 이미지**로 병합합니다.
+* **`export_summary.py` (통합 리포트 출력)**
+  * 추출된 주요 수치 데이터(IL, ER, $V_\pi L$)를 `csv` 및 `xlsx` 파일로 저장합니다. 엑셀 파일 내에는 **병합된 요약 이미지(PNG)를 클릭 한 번에 열 수 있는 하이퍼링크**가 매핑되어 직관적인 데이터 검증이 가능합니다.
