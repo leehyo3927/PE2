@@ -86,11 +86,11 @@
 
 ### 4. 시각화 병합 및 리포트 자동 생성
 * **`ER_Analysis,py` (Wafer Map, Box graph 데이터)**
-  * 추출된 주요 수치 데이터(IL, ER, $V_\pi L$)를 `csv` 및 `xlsx` 파일
-* **`ER_Analysis,py` (Wafer Map, Box graph 데이터)**
-*   * 추출된 주요 수치 데이터(IL, ER, $V_\pi L$)를 `csv` 및 `xlsx` 파일
-* **`ER_Analysis,py` (Wafer Map, Box graph 데이터)**
-  * 추출된 주요 수치 데이터(IL, ER, $V_\pi L$)를 `csv` 및 `xlsx` 파일
+  * 추출된 주요 수치 데이터(ER)를 `Wafer Map` 및 `Box Graph` 파일
+* **`IL_Analysis,py` (Wafer Map, Box graph 데이터)**
+  * 추출된 주요 수치 데이터(IL)를 `Wafer Map` 및 `Box Graph` 파일
+* **`VpiL_Analysis,py` (Wafer Map, Box graph 데이터)**
+  * 추출된 주요 수치 데이터(VpiL)를 `Wafer Map` 및 `Box Graph` 파일
 
 
 ### 5. 시각화 병합 및 리포트 자동 생성
