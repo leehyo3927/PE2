@@ -84,7 +84,7 @@
 * **`VpiL.py` ($V_\pi L$ 추출)**
   * 바이어스에 따른 위상 변화를 반파장 전압($V_\pi$)으로 환산하고, 소자의 길이($L$)를 곱하여 최종적인 전광 변조 효율 지표인 $V_\pi L$ 수치를 계산합니다.
 
-### 4. 시각화 병합 및 리포트 자동 생성
+### 4. Wafer Map 과 Box Graph 자동 생성
 * **`ER_Analysis,py` (Wafer Map, Box graph 데이터)**
   * 추출된 주요 수치 데이터(ER)를 `Wafer Map` 및 `Box Graph` 파일
 * **`IL_Analysis,py` (Wafer Map, Box graph 데이터)**
