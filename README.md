@@ -4,7 +4,7 @@
 ![Pandas](https://img.shields.io/badge/Pandas-Data%20Analysis-150458?logo=pandas&logoColor=white)
 ![Matplotlib](https://img.shields.io/badge/Matplotlib-Visualization-black?logo=python)
 
-> **XML 기반의 Wafer 측정 데이터를 파싱하고 정밀 분석(IL, ER, VpiL, Phase Shift)하여 시각화 및 통합 엑셀 리포트를 생성하는 자동화 시스템입니다.**
+> **This is an automated system that parses XML-based wafer measurement data and performs precise analysis of IL, ER, VpiL, and Phase Shift to generate visualizations and integrated Excel reports.**
 
 본 프로젝트는 광학 소자(Mach-Zehnder Modulator 등)의 웨이퍼 레벨 테스트 데이터를 자동으로 분석하고, 그 결과를 한눈에 파악할 수 있는 대시보드 형태의 리포트로 출력하는 End-to-End 파이프라인입니다.
 
