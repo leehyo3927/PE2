@@ -110,38 +110,59 @@ for (w, b, date), wbd_df in filtered_df.groupby(['Wafer', 'Band', 'Date']):
     e = wbd_df[wbd_df['Region'] == 'Edge']['IL'].values
 
     if len(c) > 0:
-        pos.append(1);
-        data.append(c);
-        lbl.append(f"Center\nn={len(c)}");
+        pos.append(1)
+        data.append(c)
+        lbl.append(f"Center\nn={len(c)}")
         clr.append('#3498db')
     if len(e) > 0:
-        pos.append(2);
-        data.append(e);
-        lbl.append(f"Edge\nn={len(e)}");
+        pos.append(2)
+        data.append(e)
+        lbl.append(f"Edge\nn={len(e)}")
         clr.append('#e74c3c')
 
     if not data: continue
 
+    tgt_il = IL_TARGETS.get(b, -8.75)
+
+    # Y축 범위를 미리 계산하여 배경색 영역 지정에 사용
+    all_data = np.concatenate(data)
+    y_min = min(all_data.min(), tgt_il) - 2  # 데이터 최소값 또는 타겟 중 작은 값 기준 안전마진
+    y_max = max(all_data.max(), tgt_il) + 2  # 데이터 최대값 또는 타겟 중 큰 값 기준 안전마진
+    plt.ylim(y_min, y_max)
+
+    # ------------------------------------------------------
+    # 🌟 성능별 배경색(수평 영역) 지정
+    # ------------------------------------------------------
+    # 타겟(Target) 이상: 연한 초록색 (Good Region)
+    plt.axhspan(tgt_il, y_max, facecolor='#e8f8f5', alpha=0.6, zorder=0, label='Good Region')
+
+    # 타겟(Target) 미만: 연한 붉은/코랄 계열 (Poor Region) - 눈에 띄면서 부정적인 의미 전달
+    plt.axhspan(y_min, tgt_il, facecolor='#fadbd8', alpha=0.6, zorder=0, label='Poor Region')
+    # ------------------------------------------------------
+
     box = plt.boxplot(data, positions=pos, patch_artist=True, widths=0.5,
-                      flierprops=dict(marker='d', markerfacecolor='black', markersize=6, alpha=0.6))
-    for p, c_hex in zip(box['boxes'], clr): p.set_facecolor(c_hex); p.set_alpha(0.6)
+                      flierprops=dict(marker='d', markerfacecolor='black', markersize=6, alpha=0.6),
+                      zorder=2)
+    for p, c_hex in zip(box['boxes'], clr): p.set_facecolor(c_hex); p.set_alpha(0.7)
 
     # Jitter(산점도) 추가
     for p, d_arr in zip(pos, data):
         plt.scatter(np.random.normal(p, 0.05, len(d_arr)), d_arr, color='black', alpha=0.5, s=20, zorder=3)
 
     avg_il = wbd_df['IL'].mean()
-    tgt_il = IL_TARGETS.get(b, -8.75)
 
-    plt.axhline(avg_il, color='blue', ls='--', lw=2.5, label=f'Avg: {avg_il:.2f} dB')
-    plt.axhline(tgt_il, color='red', ls='-', lw=2.5, label=f'Target: {tgt_il:.2f} dB')
+    # 평균 및 타겟 라인
+    plt.axhline(avg_il, color='blue', ls='--', lw=2.5, label=f'Avg: {avg_il:.2f} dB', zorder=4)
+    plt.axhline(tgt_il, color='red', ls='-', lw=2.5, label=f'Target: {tgt_il:.2f} dB', zorder=4)
 
     plt.title(f"IL Analysis : {w} ({b})\nDate: {date}", fontsize=18, fontweight='bold', pad=15)
     plt.xticks(pos, lbl, fontsize=14, fontweight='bold')
     plt.yticks(fontsize=14, fontweight='bold')
     plt.ylabel('IL [dB]', fontsize=16, fontweight='bold')
-    plt.legend(loc='upper right', prop={'size': 13, 'weight': 'bold'})
-    plt.grid(True, axis='y', ls=':', alpha=0.6)
+
+    # 범례 설정
+    plt.legend(loc='upper right', prop={'size': 11, 'weight': 'bold'})
+    plt.grid(True, axis='y', ls=':', alpha=0.4, zorder=1)
     plt.xlim(0.5, max(pos) + 0.5)
     plt.tight_layout()
 
@@ -150,5 +171,3 @@ for (w, b, date), wbd_df in filtered_df.groupby(['Wafer', 'Band', 'Date']):
     os.makedirs(box_dir, exist_ok=True)
     plt.savefig(os.path.join(box_dir, f"Box_{w}_{b}_{date}_IL.png"), bbox_inches='tight')
     plt.close()
-
-print("✅ 모든 그래프가 웨이퍼별/날짜별 폴더 구조로 저장이 완료되었습니다!")

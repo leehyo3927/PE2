@@ -207,7 +207,7 @@ df_full['Status'], df_full['Reason'] = zip(*df_full.apply(check_status, axis=1))
 def merge_midnight_dates(date_val):
     date_str = str(date_val)
     if '0603' in date_str or '0604' in date_str:
-        return '0603_0604_Combined'
+        return '20190603'
     return date_str
 
 

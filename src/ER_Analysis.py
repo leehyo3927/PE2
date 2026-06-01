@@ -129,7 +129,7 @@ print("▶ 웨이퍼 및 날짜별 Box Plot 생성 중...")
 for (w, b, date), wbd_df in filtered_df.groupby(['Wafer', 'Band', 'Date']):
     if wbd_df.empty: continue
 
-    plt.figure(figsize=(8, 8)) # 개별 웨이퍼 플롯 사이즈
+    plt.figure(figsize=(8, 8))  # 개별 웨이퍼 플롯 사이즈
     pos, data, labels, colors = [], [], [], []
 
     c = wbd_df[wbd_df['Region'] == 'Center']['ER'].values
@@ -148,9 +148,26 @@ for (w, b, date), wbd_df in filtered_df.groupby(['Wafer', 'Band', 'Date']):
 
     if not data: continue
 
+    # Y축 범위를 미리 계산하여 배경색 영역 지정에 사용
+    all_data = np.concatenate(data)
+    y_min = min(all_data.min(), 15.0) - 2  # 데이터 최소값 또는 15dB 중 작은 값 기준 안전마진
+    y_max = max(all_data.max(), 25.0) + 2  # 데이터 최대값 또는 25dB 중 큰 값 기준 안전마진
+    plt.ylim(y_min, y_max)
+
+    # ------------------------------------------------------
+    # 🌟 성능별 배경색(수평 영역) 지정
+    # ------------------------------------------------------
+    # 타겟(20.0) 이상: 연한 초록색 (Good)
+    plt.axhspan(20.0, y_max, facecolor='#e8f8f5', alpha=0.6, zorder=0, label='Good Region')
+
+    # 타겟(20.0) 미만: 연한 붉은/코랄 계열 (Poor) - 눈에 띄면서 부정적인 의미 전달
+    plt.axhspan(y_min, 20.0, facecolor='#fadbd8', alpha=0.6, zorder=0, label='Poor Region')
+    # ------------------------------------------------------
+
     box = plt.boxplot(data, positions=pos, patch_artist=True, widths=0.5,
-                      flierprops=dict(marker='d', markerfacecolor='black', markersize=6, alpha=0.6))
-    for p, c_hex in zip(box['boxes'], colors): p.set_facecolor(c_hex); p.set_alpha(0.6)
+                      flierprops=dict(marker='d', markerfacecolor='black', markersize=6, alpha=0.6),
+                      zorder=2)
+    for p, c_hex in zip(box['boxes'], colors): p.set_facecolor(c_hex); p.set_alpha(0.7)
 
     # Jitter
     for p, d_arr in zip(pos, data):
@@ -158,15 +175,16 @@ for (w, b, date), wbd_df in filtered_df.groupby(['Wafer', 'Band', 'Date']):
 
     # 평균 및 타겟 라인
     avg_er = wbd_df['ER'].mean()
-    plt.axhline(avg_er, color='blue', ls='--', lw=2.5, label=f'Avg: {avg_er:.2f} dB')
-    plt.axhline(20.0, color='red', ls='-', lw=2.5, label='Target: 20.00 dB')
+    plt.axhline(avg_er, color='blue', ls='--', lw=2.5, label=f'Avg: {avg_er:.2f} dB', zorder=4)
+    plt.axhline(20.0, color='red', ls='-', lw=2.5, label='Target: 20.00 dB', zorder=4)
 
     plt.title(f"ER Analysis : {w} ({b})\nDate: {date}", fontsize=18, fontweight='bold', pad=15)
     plt.xticks(pos, labels, fontsize=14, fontweight='bold')
     plt.yticks(fontsize=14, fontweight='bold')
     plt.ylabel('Extinction Ratio [dB]', fontsize=16, fontweight='bold')
-    plt.legend(loc='upper right', prop={'size': 13, 'weight': 'bold'})
-    plt.grid(True, axis='y', ls=':', alpha=0.6)
+
+    plt.legend(loc='upper right', prop={'size': 11, 'weight': 'bold'})
+    plt.grid(True, axis='y', ls=':', alpha=0.4, zorder=1)
     plt.xlim(0.5, max(pos) + 0.5)
     plt.tight_layout()
 
@@ -175,5 +193,3 @@ for (w, b, date), wbd_df in filtered_df.groupby(['Wafer', 'Band', 'Date']):
     os.makedirs(box_dir, exist_ok=True)
     plt.savefig(os.path.join(box_dir, f"Box_{w}_{b}_{date}_ER_Flattened.png"), bbox_inches='tight')
     plt.close()
-
-print("✅ 날짜별 ER 분석 및 저장 완료")
