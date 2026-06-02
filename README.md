@@ -3,11 +3,6 @@
 ![Python](https://img.shields.io/badge/Python-3.8%2B-blue?logo=python&logoColor=white)
 ![Pandas](https://img.shields.io/badge/Pandas-Data%20Analysis-150458?logo=pandas&logoColor=white)
 ![Matplotlib](https://img.shields.io/badge/Matplotlib-Visualization-black?logo=python)
-
-> **This is an automated system that parses XML-based wafer measurement data and performs precise analysis of IL, ER, VpiL, and Phase Shift to generate visualizations and integrated Excel reports.**
-
-This project is an end-to-end pipeline that automatically analyzes wafer-level test data from optical devices such as Mach-Zehnder Modulators and outputs the results as a dashboard-style report for at-a-glance visualization.
-
 ---
 # 📝Contents
 1. Introduction
@@ -15,19 +10,25 @@ This project is an end-to-end pipeline that automatically analyzes wafer-level t
 3. Directory Structure
 4. Install and Run
 ---
-## 📁 디렉토리 구조 (Directory Structure)
+> **This is an automated system that parses XML-based wafer measurement data and performs precise analysis of IL, ER, VpiL, and Phase Shift to generate visualizations and integrated Excel reports.**
 
-정상적인 분석 실행을 위해 데이터와 스크립트가 아래의 구조를 유지해야 합니다. 
+This project is an end-to-end pipeline that automatically analyzes wafer-level test data from optical devices such as Mach-Zehnder Modulators and outputs the results as a dashboard-style report for at-a-glance visualization.
+
+---
+## 📁 Directory Structure
+
+The project is structured to separate raw inputs, 
+processed outputs, and source logic clearly
 
 ```text
 📁 pycharm-project-root/
 │
-├── 📄 run.py                       # 🚀 통합 자동화 실행 파일 (One-click Execution)
+├── 📄 run.py                       # Integrated automation entry point (One-click Execution)
 │
 ├── 📁 dat/
-│   └── 📄 data                     # 원본 웨이퍼 XML 압축 데이터 (예: HY202103.zip)
+│   └── 📄 data                     # Raw wafer XML compressed data (ex: HY202103.zip)
 │
-├── 📁 src/                         # 핵심 분석 모듈 폴더
+├── 📁 src/                         # Core analysis module directory
 │   ├── 📄 data_parser.py           
 │   ├── 📄 plot.py                  
 │   ├── 📄 flatting.py              
@@ -41,23 +42,23 @@ This project is an end-to-end pipeline that automatically analyzes wafer-level t
 │   ├── 📄 combine_plot.py          
 │   └── 📄 export_summary.py        
 │
-└── 📁 res/                         # 프로그램 실행 시 자동 생성되는 결과물 디렉토리
-    ├── 📁 csv/                     # 요약 및 통합 데이터 CSV 모음
+└── 📁 res/                         # Output directory automatically generated at runtime
+    ├── 📁 csv/                     # Collection of summary and consolidated data CSVs
     │   ├── 📄 Analysis.csv             
     │   ├── 📄 Total_Process_result.csv 
     │   └── 📄 {Wafer_ID}_Process_result.csv 
     │
-    ├── 📁 xlsx/                    # 하이퍼링크가 포함된 통합 엑셀 리포트 모음
+    ├── 📁 xlsx/                    # Collection of consolidated Excel reports with hyperlinks
     │   ├── 📄 Analysis.xlsm            
     │   ├── 📄 Total_Process_result.xlsx 
     │   └── 📄 {Wafer_ID}_Process_result.xlsx 
     │
-    └── 📁 png/                     # 시각화 이미지 저장소
-        ├── 📁 WaferMap/                # 웨이퍼별 ER, IL, VpiL 히트맵
-        ├── 📁 BoxPlot/                 # 웨이퍼별 Center vs Edge Box Plot
-        └── 📁 {Wafer_ID}/              # [개별 다이 데이터]
-            └── 📁 {Date_YYYYMMDD}/     # 측정 날짜별 폴더 
-                └── 📄 HY202103_{Wafer}_({C},{R})_LION1_DCM_{Band}.png  # ✨ 병합된 요약 이미지
+    └── 📁 png/                     # Visualization image storage
+        ├── 📁 WaferMap/                # Per-wafer ER, IL, and VpiL heatmaps
+        ├── 📁 BoxPlot/                 # Per-wafer Center vs Edge box plots
+        └── 📁 {Wafer_ID}/              # Individual die data
+            └── 📁 {Date_YYYYMMDD}/     # Per-measurement-date folders 
+                └── 📄 HY202103_{Wafer}_({C},{R})_LION1_DCM_{Band}.png  # Merged summary images
 ```
 
 ---
