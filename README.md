@@ -1,4 +1,4 @@
-<img width="704" height="645" alt="Map_D07_LMZC_20190715_VpiL_0V" src="https://github.com/user-attachments/assets/045fa4db-f6ef-4651-9018-85a5d246444b" /><img width="704" height="645" alt="Map_D07_LMZC_20190715_VpiL_0V" src="https://github.com/user-attachments/assets/176c7456-3c9c-4699-adf5-73598790bb44" /><img width="698" height="654" alt="Map_D07_LMZC_20190715_ER" src="https://github.com/user-attachments/assets/74a53b8e-4038-4062-926c-3dc900ad12f2" /># 📂 Wafer Data Analysis & Integrated Reporting System
+# 📂 Wafer Data Analysis & Integrated Reporting System
 
 ![Python](https://img.shields.io/badge/Python-3.8%2B-blue?logo=python&logoColor=white)
 ![Pandas](https://img.shields.io/badge/Pandas-Data%20Analysis-150458?logo=pandas&logoColor=white)
