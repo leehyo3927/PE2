@@ -3,11 +3,6 @@
 ![Python](https://img.shields.io/badge/Python-3.8%2B-blue?logo=python&logoColor=white)
 ![Pandas](https://img.shields.io/badge/Pandas-Data%20Analysis-150458?logo=pandas&logoColor=white)
 ![Matplotlib](https://img.shields.io/badge/Matplotlib-Visualization-black?logo=python)
-
-> **This is an automated system that parses XML-based wafer measurement data and performs precise analysis of IL, ER, VpiL, and Phase Shift to generate visualizations and integrated Excel reports.**
-
-This project is an end-to-end pipeline that automatically analyzes wafer-level test data from optical devices such as Mach-Zehnder Modulators and outputs the results as a dashboard-style report for at-a-glance visualization.
-
 ---
 # 📝Contents
 1. Introduction
@@ -15,9 +10,15 @@ This project is an end-to-end pipeline that automatically analyzes wafer-level t
 3. Directory Structure
 4. Install and Run
 ---
-## 📁 디렉토리 구조 (Directory Structure)
+> **This is an automated system that parses XML-based wafer measurement data and performs precise analysis of IL, ER, VpiL, and Phase Shift to generate visualizations and integrated Excel reports.**
 
-정상적인 분석 실행을 위해 데이터와 스크립트가 아래의 구조를 유지해야 합니다. 
+This project is an end-to-end pipeline that automatically analyzes wafer-level test data from optical devices such as Mach-Zehnder Modulators and outputs the results as a dashboard-style report for at-a-glance visualization.
+
+---
+## 📁 Directory Structure
+
+The project is structured to separate raw inputs, 
+processed outputs, and source logic clearly
 
 ```text
 📁 pycharm-project-root/
