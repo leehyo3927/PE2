@@ -45,7 +45,6 @@ Based on these inputs, the pipeline acts as a **black box** —
 automatically processing the requested data and delivering
 the final results without manual intervention.
 
----
 
 ### ▶️ How It Works
 
@@ -53,7 +52,42 @@ the final results without manual intervention.
 2. Process raw XML data through a series of analysis modules
 3. Export the final results as `.csv` and `.xlsx` reports
 ---
-## 📁 Directory Structure
+## 3. ⚙️ Key Features
+
+
+### 1) Data Extraction & Visualization Preparation
+
+- **`ref_poly.py`** — Removes noise from REF signals and establishes a stable baseline for analysis
+- **`data_parser.py`** — Parses target band (LMZC / LMZO) spectrum data from raw XML files
+- **`plot.py`** — Generates baseline wavelength-transmission spectrum plots from parsed raw data
+
+
+### 2) Signal Correction & Target Region Extraction
+
+- **`flatting.py`** — Flattens the signal baseline by correcting offset errors between Reference and MZM devices
+- **`zoom.py`** — Zooms into key analysis wavelength ranges per band (LMZC: 1550 nm / LMZO: 1310 nm)
+- **`Fitting.py`** — Removes high-frequency noise (ripple) and applies polynomial fitting for smooth data refinement
+
+
+### 3) Device Performance Metric Calculation
+
+- **`Phase shift - V.py`** — Tracks wavelength shifts according to applied bias voltage based on dip positions in fitted graphs
+- **`VpiL.py`** — Calculates VπL (electro-optic modulation efficiency) by converting phase shifts into half-wave voltage (Vπ) and multiplying by device length (L)
+
+
+### 4) Wafer Map & Box Plot Auto-Generation
+
+- **`ER_Analysis.py`** — Generates Wafer Map and Box Graph for Extinction Ratio (ER)
+- **`IL_Analysis.py`** — Generates Wafer Map and Box Graph for Insertion Loss (IL)
+- **`VpiL_Analysis.py`** — Generates Wafer Map and Box Graph for VpiL
+
+
+### 5) Visualization Merging & Report Auto-Generation
+
+- **`combine_plot.py`** — Merges individual analysis graphs into a single summary dashboard image per wafer and measurement date
+- **`export_summary.py`** — Exports final IL / ER / VπL data as `.csv` and `.xlsx` files, with hyperlinks in Excel mapped to merged summary images for intuitive one-click data verification
+------
+## 4. 📁 Directory Structure
 
 The project is structured to separate raw inputs, 
 processed outputs, and source logic clearly
@@ -98,10 +132,9 @@ processed outputs, and source logic clearly
             └── 📁 {Date_YYYYMMDD}/     # Per-measurement-date folders 
                 └── 📄 HY202103_{Wafer}_({C},{R})_LION1_DCM_{Band}.png  # Merged summary images
 ```
-
 ---
 
-## ⚙️ 데이터 분석 파이프라인 (Data Pipeline)
+## 7. ⚙️ Data Analysis Pipeline
 
 `run.py` 실행 시 내부적으로 총 9개의 핵심 모듈이 순차적으로 동작하며 데이터를 가공합니다. 
 
