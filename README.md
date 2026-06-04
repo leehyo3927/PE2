@@ -133,6 +133,32 @@ processed outputs, and source logic clearly
                 └── 📄 HY202103_{Wafer}_({C},{R})_LION1_DCM_{Band}.png  # Merged summary images
 ```
 ---
+# 5. Install and Run
+
+### Installation
+
+```bash
+pip install -r requirements.txt
+```
+
+### How to Run
+
+1. Place the raw XML data folder you want to analyze into the `dat/` directory
+2. Execute the pipeline
+
+```bash
+python run.py
+```
+
+3. Select analysis options
+   - Target **Wafer** and **Die** (row & column)
+   - Figure options : `Show Figure` / `Save Figure` / `Save CSV`
+4. Results are automatically saved in the `res/` directory
+
+
+
+
+---
 
 # 7. ⚙️ Data Analysis Pipeline
 
