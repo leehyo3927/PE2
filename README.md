@@ -226,4 +226,4 @@ sequentially to process the data.
 ---
 # ⚠️ Precautions
 
-무슨 내용 추가할 지 
+무슨
