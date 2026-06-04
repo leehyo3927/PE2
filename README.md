@@ -223,3 +223,5 @@ sequentially to process the data.
     `.csv` and `.xlsx` files. The Excel file includes 
     hyperlinks mapped to merged summary images (PNG), 
     enabling intuitive one-click data verification.
+---
+# ⚠️ Precautions
