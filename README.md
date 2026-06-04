@@ -157,6 +157,7 @@ python run.py
 ---
 # 6. Input & Output Examples
 
+여기에 그래프와 csv 사진 첨부
 ---
 
 # 7. ⚙️ Data Analysis Pipeline
